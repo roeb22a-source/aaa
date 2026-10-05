@@ -1,0 +1,25 @@
+{
+  "name": "ebay-verkaufshelfer",
+  "version": "1.0.0",
+  "description": "eBay-Verkaufstool für Laien: Fotos, Bildverbesserung, KI-Text, Einstellen",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.131.0",
+    "@imgly/background-removal-node": "^1.4.5",
+    "dotenv": "^18.0.5",
+    "express": "^5.2.1",
+    "multer": "^2.4.0",
+    "sharp": "^0.35.5"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
+  }
+}
