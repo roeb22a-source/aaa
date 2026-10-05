@@ -96,7 +96,7 @@ export function buildOfferPayload(draft, { sku, policies, merchantLocationKey, c
       const accept = num(v.preisvorschlag.annahmeAb);
       const decline = num(v.preisvorschlag.ablehnenUnter);
       if (accept > 0) {
-        if (accept >= price + 0.001 && accept > price) throw new AppError(400, 'Preisvorschlag ungültig', 'Der Preis für die automatische Annahme darf nicht über dem Festpreis liegen.', { schritt: 4 });
+        if (accept > price) throw new AppError(400, 'Preisvorschlag ungültig', 'Der Preis für die automatische Annahme darf nicht über dem Festpreis liegen.', { schritt: 4 });
         terms.autoAcceptPrice = money(accept);
       }
       if (decline > 0) {
