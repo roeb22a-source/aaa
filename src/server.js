@@ -28,6 +28,8 @@ export function createApp() {
   app.use(express.json({ limit: '2mb' }));
   app.use('/files', express.static(UPLOAD_DIR, { maxAge: '1h', fallthrough: false, index: false }));
   app.use(express.static(path.join(ROOT, 'public')));
+  // Einzeldatei-Variante (index.html im Projektordner): erkennt den Server und bietet dann zusätzlich "Direkt einstellen" an.
+  app.get(['/einfach', '/einfach/'], (req, res) => res.sendFile(path.join(ROOT, 'index.html')));
 
   const upload = multer({
     storage: multer.memoryStorage(),

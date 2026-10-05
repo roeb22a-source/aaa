@@ -12,6 +12,20 @@ Ein Verkaufstool "für Dummies": Du machst Fotos, die App verbessert sie, schrei
 
 **Demo-Modus:** Ohne Schlüssel ist die App komplett durchklickbar (Bildbearbeitung echt, Text als Beispiel, Einstellen simuliert). Das wird oben deutlich angezeigt.
 
+## Einfachste Variante: nur index.html
+
+Du brauchst weder Node.js noch eine Installation: Die Datei **`index.html`** im Projektordner enthält die komplette App (Oberfläche, Bildbearbeitung, KI-Anbindung).
+
+1. Die Datei `index.html` herunterladen (oder aus dem Projektordner kopieren).
+2. Doppelklick: Sie öffnet sich im Browser (Chrome, Edge, Firefox, Safari; am Handy die Datei im Browser öffnen).
+3. Oben auf **Einstellungen** tippen, den [Anthropic-Schlüssel](https://console.anthropic.com/) eintragen und speichern. Er bleibt nur auf diesem Gerät (localStorage) und geht direkt vom Browser an Anthropic. Ohne Schlüssel läuft der Demo-Modus mit Beispieltext.
+4. Den 5 Schritten folgen. Die Bilder werden komplett im Browser verbessert (Auto-Kontrast, Schärfen, unscharfer Hintergrund). Die Freistellung des Objekts lädt dafür beim ersten Mal ein Modell aus dem Internet (ca. 45 MB, [@imgly/background-removal](https://github.com/imgly/background-removal-js)); klappt das nicht (offline, gesperrt), nutzt die App automatisch eine Fokus-Unschärfe (Mitte scharf, Rand unscharf). Der Text kommt von Claude mit Websuche nach Vergleichsangeboten.
+5. Am Ende gibt es Knöpfe zum Kopieren von Titel und Beschreibung, zum Herunterladen der Bilder (einzeln oder als ZIP) und zur eBay-Verkaufsseite, dazu eine Schritt-für-Schritt-Anleitung und eine Zusammenfassung aller Angaben.
+
+**Unterschied zum Server-Modus:** Die Einzeldatei kann den Artikel nicht selbst bei eBay einstellen, weil eBay Zugriffe direkt aus dem Browser blockiert (CORS) und die eBay-Anmeldung ein Geheimnis (Cert ID) braucht. Das Einstellen machst du dort selbst mit der Anleitung. Mit dem Server (siehe unten) geht es per Knopf: Öffnest du `index.html` über den laufenden Server (`http://localhost:3000/einfach`) und ist dort dein eBay-Konto verbunden, erscheint in Schritt 5 zusätzlich **"Direkt bei eBay einstellen"**. Die Seite erkennt den Server automatisch (`GET /api/status`); die verbesserten Bilder werden dann zum Server hochgeladen.
+
+Hinweis: Wird die Datei per Doppelklick geöffnet (`file://`), sperren manche Browser das Laden des Freistellungs-Moduls; dann greift die Fokus-Unschärfe. Über `http://localhost:3000/einfach` klappt die Freistellung am zuverlässigsten.
+
 ## Installation
 
 1. [Node.js](https://nodejs.org/) (Version 20 oder neuer, empfohlen 22) installieren.

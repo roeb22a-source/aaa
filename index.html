@@ -1,0 +1,1391 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>eBay-Verkaufshelfer (einfach)</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232563eb'/%3E%3Cpath d='M9 17l5 5 9-11' stroke='white' stroke-width='3.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <!-- Import-Map: wird nur für die Hintergrund-Freistellung (dynamischer Import vom CDN) gebraucht -->
+  <script type="importmap">
+  {"imports":{
+    "onnxruntime-web":"https://cdn.jsdelivr.net/npm/onnxruntime-web@1.21.0/dist/ort.min.mjs",
+    "onnxruntime-web/webgpu":"https://cdn.jsdelivr.net/npm/onnxruntime-web@1.21.0/dist/ort.webgpu.min.mjs"
+  }}
+  </script>
+  <style>
+:root {
+  --bg: #f5f7fb; --card: #ffffff; --text: #16202e; --muted: #5b6678; --line: #d9e0ea;
+  --primary: #1d4ed8; --primary-text: #ffffff; --primary-soft: #e5edff;
+  --ok: #15803d; --ok-soft: #e3f6e9; --warn: #b45309; --warn-soft: #fff1d6; --err: #b91c1c; --err-soft: #fde8e8;
+  --demo: #7c3aed; --demo-soft: #efe7ff; --shadow: 0 2px 10px rgba(20, 30, 50, .08);
+  --radius: 16px; font-size: 18px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f141b; --card: #19212c; --text: #eef2f7; --muted: #a0abbb; --line: #2c3746;
+    --primary: #6a9bff; --primary-text: #0b1220; --primary-soft: #1d2b4a;
+    --ok: #4ade80; --ok-soft: #13301d; --warn: #fbbf24; --warn-soft: #3a2b0c; --err: #f87171; --err-soft: #3b1717;
+    --demo: #c4a5ff; --demo-soft: #2a1d4a; --shadow: 0 2px 10px rgba(0, 0, 0, .4);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f141b; --card: #19212c; --text: #eef2f7; --muted: #a0abbb; --line: #2c3746;
+  --primary: #6a9bff; --primary-text: #0b1220; --primary-soft: #1d2b4a;
+  --ok: #4ade80; --ok-soft: #13301d; --warn: #fbbf24; --warn-soft: #3a2b0c; --err: #f87171; --err-soft: #3b1717;
+  --demo: #c4a5ff; --demo-soft: #2a1d4a; --shadow: 0 2px 10px rgba(0, 0, 0, .4);
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.5; padding-bottom: 110px; }
+.wrap { max-width: 860px; margin: 0 auto; padding: 0 16px; }
+h1 { font-size: 1.55rem; line-height: 1.25; margin: .4em 0 .2em; }
+h2 { font-size: 1.2rem; margin: 1.2em 0 .4em; }
+h3 { font-size: 1.05rem; margin: 1em 0 .3em; }
+p { margin: .4em 0 .8em; }
+a { color: var(--primary); }
+.muted { color: var(--muted); font-size: .9rem; }
+.lead { color: var(--muted); margin-top: 0; }
+
+.top { background: var(--card); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 20; }
+.top-in { display: flex; align-items: center; justify-content: space-between; min-height: 52px; gap: 10px; }
+.brand { font-weight: 700; text-decoration: none; color: var(--text); font-size: 1.05rem; }
+.top-nav { display: flex; gap: 6px; }
+.linkbtn { background: none; border: 0; color: var(--primary); font: inherit; font-size: .88rem; padding: 10px 8px; cursor: pointer; text-decoration: none; }
+#banner .demo { background: var(--demo-soft); color: var(--demo); font-size: .85rem; padding: 6px 16px; text-align: center; font-weight: 600; }
+#banner .demo + .demo { border-top: 1px solid var(--line); }
+
+.progress { display: flex; gap: 6px; margin: 16px 0 6px; }
+.progress .st { flex: 1; text-align: center; font-size: .72rem; color: var(--muted); }
+.progress .bar { height: 8px; border-radius: 99px; background: var(--line); margin-bottom: 5px; }
+.progress .st.done .bar { background: var(--ok); }
+.progress .st.now .bar { background: var(--primary); }
+.progress .st.now { color: var(--text); font-weight: 700; }
+@media (max-width: 520px) { .progress .st span { display: none; } .progress .st.now span { display: block; } }
+
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; margin: 14px 0; box-shadow: var(--shadow); }
+.card.tight { padding: 12px; }
+
+.btn { font: inherit; font-weight: 700; border-radius: 14px; border: 2px solid transparent; padding: 15px 20px; min-height: 56px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; text-align: center; }
+.btn-primary { background: var(--primary); color: var(--primary-text); }
+.btn-secondary { background: var(--card); color: var(--text); border-color: var(--line); }
+.btn-ok { background: var(--ok); color: #fff; font-size: 1.1rem; }
+:root[data-theme="dark"] .btn-ok { color: #06210f; }
+.btn-small { min-height: 42px; padding: 8px 14px; font-size: .9rem; border-radius: 10px; }
+.btn-danger { background: var(--card); color: var(--err); border-color: var(--err); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn:focus-visible, .tile:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, .help:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+.btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.btn-row .btn { flex: 1 1 200px; }
+
+.navbar { position: fixed; left: 0; right: 0; bottom: 0; background: var(--card); border-top: 1px solid var(--line); z-index: 30; padding: 10px 0 calc(10px + env(safe-area-inset-bottom)); }
+.navbar-in { display: flex; gap: 10px; }
+.navbar .btn { flex: 1; }
+.navbar .btn-primary { flex: 2; }
+.navbar.hidden { display: none; }
+
+label, .label { display: block; font-weight: 600; margin: 14px 0 5px; }
+input[type=text], input[type=password], input[type=number], input[type=search], select, textarea {
+  width: 100%; font: inherit; padding: 13px 14px; border-radius: 12px; border: 2px solid var(--line); background: var(--bg); color: var(--text); min-height: 50px;
+}
+textarea { min-height: 150px; resize: vertical; }
+input[type=range] { width: 100%; height: 36px; accent-color: var(--primary); }
+.check { display: flex; gap: 12px; align-items: flex-start; font-weight: 500; margin: 10px 0; cursor: pointer; }
+.check input { width: 24px; height: 24px; flex: none; margin-top: 2px; accent-color: var(--primary); }
+.row { display: flex; gap: 12px; flex-wrap: wrap; }
+.row > * { flex: 1 1 180px; min-width: 0; }
+.counter { font-size: .85rem; color: var(--muted); text-align: right; }
+.counter.bad { color: var(--err); font-weight: 700; }
+
+.help { display: inline-flex; width: 24px; height: 24px; border-radius: 50%; border: 0; background: var(--primary-soft); color: var(--primary); font-weight: 800; font-size: .8rem; cursor: pointer; align-items: center; justify-content: center; margin-left: 6px; vertical-align: middle; padding: 0; }
+.helptext { background: var(--primary-soft); border-radius: 10px; padding: 10px 12px; font-size: .88rem; margin: 6px 0; font-weight: 400; }
+
+.drop { border: 3px dashed var(--line); border-radius: var(--radius); padding: 26px 16px; text-align: center; background: var(--card); }
+.drop.over { border-color: var(--primary); background: var(--primary-soft); }
+.drop .btn-row { margin-top: 12px; justify-content: center; }
+.thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-top: 14px; }
+.thumb { background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; position: relative; }
+.thumb img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+.thumb .tb { display: flex; justify-content: space-between; padding: 4px; gap: 4px; }
+.thumb .tb button { flex: 1; min-height: 44px; border: 1px solid var(--line); background: var(--bg); color: var(--text); border-radius: 8px; font-size: 1.1rem; cursor: pointer; }
+.thumb .tb button:disabled { opacity: .35; }
+.thumb .tb button.del { color: var(--err); }
+.badge { position: absolute; top: 6px; left: 6px; background: var(--primary); color: var(--primary-text); font-size: .75rem; font-weight: 700; padding: 3px 9px; border-radius: 99px; }
+.badge.method { left: auto; right: 6px; background: var(--ok); color: #fff; }
+.badge.warn { background: var(--warn); }
+
+.ba { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ba figure { margin: 0; position: relative; }
+.ba img { width: 100%; border-radius: 12px; display: block; border: 3px solid transparent; cursor: pointer; background: var(--line); aspect-ratio: 4/3; object-fit: contain; }
+.ba figure.sel img { border-color: var(--ok); }
+.ba figcaption { font-size: .85rem; text-align: center; color: var(--muted); margin-top: 4px; }
+.ba figure.sel figcaption { color: var(--ok); font-weight: 700; }
+.seg { display: flex; gap: 8px; margin-top: 8px; }
+.seg label { flex: 1; margin: 0; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg span { display: block; text-align: center; padding: 12px 6px; border-radius: 12px; border: 2px solid var(--line); font-weight: 600; cursor: pointer; }
+.seg input:checked + span { background: var(--primary-soft); border-color: var(--primary); color: var(--primary); }
+.seg input:focus-visible + span { outline: 3px solid var(--primary); }
+
+.tiles { display: grid; gap: 12px; grid-template-columns: 1fr; }
+@media (min-width: 640px) { .tiles { grid-template-columns: repeat(3, 1fr); } }
+.tile { border: 3px solid var(--line); background: var(--card); color: var(--text); border-radius: var(--radius); padding: 18px 14px; text-align: left; cursor: pointer; font: inherit; }
+.tile b { display: block; font-size: 1.1rem; margin-bottom: 4px; }
+.tile span { color: var(--muted); font-size: .9rem; }
+.tile.sel { border-color: var(--primary); background: var(--primary-soft); }
+
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; text-align: center; margin: 10px 0; }
+.stats div { background: var(--bg); border-radius: 12px; padding: 8px 4px; }
+.stats b { display: block; font-size: 1.1rem; }
+.stats small { color: var(--muted); }
+.kv { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; margin-bottom: 8px; align-items: center; }
+.kv .btn { min-height: 50px; padding: 0 14px; }
+
+.notice { border-radius: 12px; padding: 12px 14px; margin: 12px 0; font-size: .95rem; }
+.notice.info { background: var(--primary-soft); }
+.notice.warn { background: var(--warn-soft); }
+.notice.err { background: var(--err-soft); color: var(--text); border: 2px solid var(--err); }
+.notice.ok { background: var(--ok-soft); }
+.notice.demo { background: var(--demo-soft); }
+.notice b { display: block; }
+.notice ul { margin: 6px 0 0; padding-left: 20px; }
+
+.spinner { width: 22px; height: 22px; border: 3px solid var(--line); border-top-color: var(--primary); border-radius: 50%; animation: spin .8s linear infinite; display: inline-block; vertical-align: middle; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.busy { display: flex; align-items: center; gap: 12px; padding: 14px; background: var(--primary-soft); border-radius: 12px; margin: 10px 0; }
+
+.preview { overflow: hidden; padding: 0; }
+.preview .gallery { display: flex; gap: 6px; overflow-x: auto; padding: 10px; background: var(--bg); }
+.preview .gallery img { height: 160px; border-radius: 10px; flex: none; }
+.preview .pbody { padding: 16px; }
+.preview .ptitle { font-size: 1.25rem; font-weight: 700; margin: 0 0 6px; }
+.preview .price { font-size: 1.6rem; font-weight: 800; }
+.preview table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+.preview td { padding: 6px 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.preview td:first-child { color: var(--muted); width: 40%; }
+.preview .desc { white-space: pre-wrap; }
+.tag { display: inline-block; background: var(--primary-soft); color: var(--primary); border-radius: 99px; padding: 2px 10px; font-size: .8rem; font-weight: 700; margin-right: 6px; }
+
+.toast { position: fixed; left: 50%; bottom: 100px; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 10px 18px; border-radius: 99px; opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 50; max-width: 90vw; text-align: center; }
+.toast.show { opacity: 1; }
+details summary { cursor: pointer; font-weight: 700; padding: 6px 0; }
+ol.steps { padding-left: 22px; } ol.steps li { margin-bottom: 10px; }
+code { background: var(--bg); padding: 1px 6px; border-radius: 6px; font-size: .88em; word-break: break-all; }
+.hide { display: none !important; }
+.success { text-align: center; }
+.success .big { font-size: 3rem; color: var(--ok); }
+
+progress { height: 10px; accent-color: var(--primary); margin: 4px 0 8px; }
+ol.guide { padding-left: 0; list-style: none; counter-reset: g; margin: 0; }
+ol.guide li { counter-increment: g; position: relative; padding: 4px 0 14px 46px; border-bottom: 1px solid var(--line); margin-bottom: 10px; }
+ol.guide li:last-child { border-bottom: 0; }
+ol.guide li::before { content: counter(g); position: absolute; left: 0; top: 2px; width: 32px; height: 32px; border-radius: 50%; background: var(--primary); color: var(--primary-text); font-weight: 800; display: flex; align-items: center; justify-content: center; }
+.mock { display: flex; gap: 10px; align-items: center; background: var(--bg); border: 2px dashed var(--line); border-radius: 12px; padding: 8px 10px; margin: 8px 0 2px; }
+.mock-l { font-size: .75rem; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .03em; flex: none; }
+.mock-v { flex: 1; min-width: 0; word-break: break-word; font-size: .92rem; }
+.mock .btn { flex: none; }
+@media (max-width: 520px) { .mock { flex-wrap: wrap; } .mock-v { flex: 1 1 100%; order: 3; } }
+table.sum { width: 100%; border-collapse: collapse; font-size: .92rem; }
+table.sum td { padding: 6px 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.sum td:first-child { color: var(--muted); width: 38%; }
+
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top-in">
+      <a class="brand" href="#" id="brand">eBay-Verkaufshelfer</a>
+      <nav class="top-nav">
+        <button class="linkbtn" id="themeBtn" type="button" title="Hell/Dunkel umschalten">Hell/Dunkel</button>
+        <a class="linkbtn" href="#einstellungen" id="settingsLink" aria-label="Einstellungen">&#9881; Einstellungen</a>
+      </nav>
+    </div>
+    <div id="banner"></div>
+  </header>
+
+  <main class="wrap" id="main">
+    <div id="progress" class="progress" aria-label="Fortschritt"></div>
+    <div id="view"></div>
+  </main>
+
+  <footer class="navbar" id="navbar">
+    <div class="wrap navbar-in">
+      <button class="btn btn-secondary" id="backBtn" type="button">Zurück</button>
+      <button class="btn btn-primary" id="nextBtn" type="button">Weiter</button>
+    </div>
+  </footer>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* eBay-Verkaufshelfer, Einzeldatei-Version: läuft per Doppelklick im Browser, ohne Node.js. */
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const STEPS = ['Fotos', 'Bilder verbessern', 'Text & Preis', 'Verkaufsart', 'Fertig & Einstellen'];
+const STORE_KEY = 'ebayhelfer-einfach-entwurf-v1';
+const SET_KEY = 'ebayhelfer-einfach-einstellungen-v1';
+const MAX = 6;
+const MAX_EDGE = 1600;
+const AI_EDGE = 1024;
+const DEFAULT_MODEL = 'claude-sonnet-5-5';
+const IMGLY_VERSION = '1.7.0';
+const CONDITIONS = {
+  NEW: 'Neu', LIKE_NEW: 'Neuwertig', NEW_OTHER: 'Neu (ohne Originalverpackung)', NEW_WITH_DEFECTS: 'Neu mit Fehlern',
+  USED_EXCELLENT: 'Gebraucht - Sehr gut', USED_VERY_GOOD: 'Gebraucht - Gut', USED_GOOD: 'Gebraucht - Akzeptabel',
+  USED_ACCEPTABLE: 'Gebraucht - Stark gebraucht', FOR_PARTS_OR_NOT_WORKING: 'Defekt / für Teile',
+};
+const PRIVAT_HINWEIS = 'Privatverkauf, keine Garantie oder Rücknahme.';
+
+const freshState = () => ({
+  schritt: 1,
+  blur: 50,
+  bgOn: true,
+  stichworte: '',
+  privat: true,
+  text: null, // {titel, beschreibung, zustand, zustandsbeschreibung, merkmale[], kategorie, preis_festpreis, preis_startpreis, preis_begruendung, hinweise[]}
+  vergleich: [],
+  demoText: false,
+  verkauf: {
+    art: 'festpreis', preis: '', startpreis: '', sofortpreis: '', reservePreis: '', dauerTage: 7, menge: 1,
+    preisvorschlag: { aktiv: false, annahmeAb: '', ablehnenUnter: '' },
+    versandArt: 'paket', versandKosten: '', rueckgabe: 'keine',
+  },
+  server: { kategorieId: '', versandId: '', zahlungId: '', rueckgabeId: '', standort: '' },
+});
+let state = freshState();
+let settings = { apiKey: '', model: DEFAULT_MODEL, forceDemo: false };
+let imgs = []; // Laufzeit-Bilder (nicht gespeichert): {id,name,orig(canvas),origBlob,origUrl,enhBlob,enhUrl,wahl,methode,hinweis}
+let busy = null;
+let ergebnis = null; // Ergebnis "Direkt einstellen"
+let server = { ok: false, status: null, base: null, konto: null, kontoFehler: null };
+let restoredWithoutImages = false;
+let nextId = 1;
+
+// ---------- Speicher (immer mit try/catch) ----------
+function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch { /* privater Modus o. ä. */ } }
+function load() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (raw) {
+      const s = JSON.parse(raw);
+      const f = freshState();
+      state = { ...f, ...s, verkauf: { ...f.verkauf, ...(s.verkauf || {}), preisvorschlag: { ...f.verkauf.preisvorschlag, ...(s.verkauf?.preisvorschlag || {}) } }, server: { ...f.server, ...(s.server || {}) } };
+      return Boolean(state.text);
+    }
+  } catch { /* beschädigt: ignorieren */ }
+  return false;
+}
+function loadSettings() {
+  try { const s = JSON.parse(localStorage.getItem(SET_KEY) || 'null'); if (s) settings = { ...settings, ...s }; } catch { /* ignorieren */ }
+}
+function saveSettings() { try { localStorage.setItem(SET_KEY, JSON.stringify(settings)); return true; } catch { return false; } }
+function themeInit() { try { const t = localStorage.getItem('ebayhelfer-theme'); if (t) document.documentElement.dataset.theme = t; } catch { /* ignorieren */ } }
+$('#themeBtn').addEventListener('click', () => {
+  const dark = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() === '#0f141b';
+  const next = dark ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem('ebayhelfer-theme', next); } catch { /* ignorieren */ }
+});
+
+// ---------- Hilfsfunktionen ----------
+function toast(msg) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toast.t);
+  toast.t = setTimeout(() => t.classList.remove('show'), 3500);
+}
+const help = (text) => `<button type="button" class="help" data-help="${esc(text)}" aria-label="Hilfe anzeigen" aria-expanded="false">?</button>`;
+const num = (v) => { const n = Number(String(v ?? '').replace(',', '.')); return Number.isFinite(n) && String(v ?? '').trim() !== '' ? n : NaN; };
+const eur = (v) => (Number.isFinite(num(v)) ? num(v).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }) : '-');
+const errBox = (f) =>
+  `<div class="notice err" role="alert"><b>${esc(f.titel || 'Fehler')}</b>${esc(f.text || '')}${f.details ? `<div class="muted">Technische Details: ${esc(f.details)}</div>` : ''}
+   <div class="btn-row" style="margin-top:10px">${f.schritt ? `<button class="btn btn-primary btn-small" data-go="${f.schritt}">Zurück zu Schritt ${f.schritt}</button>` : ''}${f.einstellungen ? `<a class="btn btn-primary btn-small" href="#einstellungen">Zu den Einstellungen</a>` : ''}</div></div>`;
+const spinner = (t) => `<div class="busy" role="status"><span class="spinner"></span><span>${esc(t)}</span></div>`;
+const getPath = (o, p) => p.split('.').reduce((a, k) => a?.[k], o);
+function setPath(o, p, v) { const ks = p.split('.'); const last = ks.pop(); ks.reduce((a, k) => (a[k] ??= {}), o)[last] = v; }
+const truncateTitle = (title, max = 80) => {
+  const t = String(title ?? '').replace(/\s+/g, ' ').trim();
+  if (t.length <= max) return t;
+  const cut = t.slice(0, max);
+  const sp = cut.lastIndexOf(' ');
+  return (sp >= Math.floor(max * 0.6) ? cut.slice(0, sp) : cut).replace(/[\s\-–,;:/|+&]+$/u, '');
+};
+const withTimeout = (p, ms, msg) => new Promise((res, rej) => {
+  const t = setTimeout(() => rej(new Error(msg || 'Zeitüberschreitung')), ms);
+  p.then((v) => { clearTimeout(t); res(v); }, (e) => { clearTimeout(t); rej(e); });
+});
+const canvasBlob = (c, type = 'image/jpeg', q = 0.9) => new Promise((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('Bild konnte nicht erzeugt werden'))), type, q));
+function newCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+async function blobToCanvas(blob, maxEdge = 0) {
+  const bmp = await decodeImage(blob);
+  const s = maxEdge ? Math.min(1, maxEdge / Math.max(bmp.width, bmp.height)) : 1;
+  const c = newCanvas(Math.max(1, Math.round(bmp.width * s)), Math.max(1, Math.round(bmp.height * s)));
+  const x = c.getContext('2d');
+  x.imageSmoothingQuality = 'high';
+  x.drawImage(bmp, 0, 0, c.width, c.height);
+  bmp.close?.();
+  return c;
+}
+async function decodeImage(file) {
+  try {
+    return await createImageBitmap(file, { imageOrientation: 'from-image' });
+  } catch {
+    // Älterer Browser: über <img> laden (dreht EXIF heute meist automatisch)
+    const url = URL.createObjectURL(file);
+    try {
+      const img = new Image();
+      img.src = url;
+      await img.decode();
+      return img;
+    } finally { setTimeout(() => URL.revokeObjectURL(url), 5000); }
+  }
+}
+const isHeic = (f) => /hei[cf]/i.test(f.type) || /\.hei[cf]$/i.test(f.name);
+
+// ---------- Rahmen: Banner, Fortschritt, Navigation ----------
+const isDemo = () => !settings.apiKey.trim() || settings.forceDemo;
+function renderBanner() {
+  const parts = [];
+  if (isDemo()) parts.push('DEMO: Der Text wird als Beispiel erzeugt (kein Anthropic-Schlüssel hinterlegt)');
+  $('#banner').innerHTML = parts.map((p) => `<div class="demo">${esc(p)}</div>`).join('');
+}
+function renderProgress() {
+  $('#progress').innerHTML = STEPS.map((s, i) => `<div class="st ${i + 1 < state.schritt ? 'done' : i + 1 === state.schritt ? 'now' : ''}"><div class="bar"></div><span>${i + 1}. ${esc(s)}</span></div>`).join('');
+}
+const NEXT_LABEL = ['', 'Weiter: Bilder verbessern', 'Weiter: Text erstellen', 'Weiter: Verkaufsart', 'Weiter: Fertig', ''];
+function renderNav() {
+  const s = state.schritt;
+  $('#navbar').classList.toggle('hidden', location.hash.startsWith('#einstellungen'));
+  $('#backBtn').classList.toggle('hide', s === 1);
+  $('#nextBtn').classList.toggle('hide', s === 5);
+  $('#nextBtn').textContent = NEXT_LABEL[s];
+  $('#nextBtn').disabled = Boolean(busy);
+  $('#backBtn').disabled = Boolean(busy);
+}
+function validate(s) {
+  if (s === 1 && imgs.length < 1) return 'Bitte füge mindestens 1 Foto hinzu.';
+  if (s === 2 && imgs.some((b) => !b.enhBlob && !b.fehler)) return 'Die Bilder werden noch verbessert. Bitte einen Moment warten.';
+  if (s === 3) {
+    if (!state.text) return 'Bitte lass zuerst den Text erstellen (grüner Knopf).';
+    if (!state.text.titel.trim()) return 'Bitte gib einen Titel ein.';
+    if (state.text.titel.length > 80) return 'Der Titel ist länger als 80 Zeichen.';
+    if (!state.text.beschreibung.trim()) return 'Bitte gib eine Beschreibung ein.';
+  }
+  if (s === 4) {
+    const v = state.verkauf;
+    if (v.art === 'festpreis' && !(num(v.preis) > 0)) return 'Bitte gib einen Festpreis ein.';
+    if (v.art !== 'festpreis' && !(num(v.startpreis) > 0)) return 'Bitte gib einen Startpreis ein.';
+    if (v.art === 'auktion_sofort' && !(num(v.sofortpreis) > num(v.startpreis))) return 'Der Sofort-Kaufen-Preis muss höher als der Startpreis sein.';
+    if (v.art === 'festpreis' && v.preisvorschlag.aktiv && num(v.preisvorschlag.annahmeAb) > num(v.preis)) return 'Der Preis für die automatische Annahme darf nicht höher als der Festpreis sein.';
+  }
+  return null;
+}
+function go(n) {
+  state.schritt = Math.max(1, Math.min(5, n));
+  save();
+  render();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+$('#nextBtn').addEventListener('click', () => { const e = validate(state.schritt); if (e) return toast(e); go(state.schritt + 1); });
+$('#backBtn').addEventListener('click', () => go(state.schritt - 1));
+
+function render() {
+  if (location.hash.startsWith('#einstellungen')) return renderSettings();
+  $('#progress').classList.remove('hide');
+  renderBanner();
+  renderProgress();
+  renderNav();
+  ({ 1: step1, 2: step2, 3: step3, 4: step4, 5: step5 })[state.schritt]($('#view'));
+}
+
+// ===== Schritt 1: Fotos =====
+function step1(v) {
+  const n = imgs.length;
+  v.innerHTML = `
+    <h1>Schritt 1: Fotos hinzufügen</h1>
+    <p class="lead">Mach 1 bis 6 Fotos von deinem Artikel. Das erste Foto ist das Hauptbild. Gute Fotos verkaufen besser: helles Licht, ruhiger Hintergrund, auch Details und Mängel zeigen. Deine Fotos bleiben auf deinem Gerät und werden nur zur Texterstellung an die KI geschickt.</p>
+    ${restoredWithoutImages ? '<div class="notice info"><b>Dein letzter Entwurf ist noch da</b>Texte und Einstellungen wurden wiederhergestellt. Fotos werden aus Datenschutzgründen nicht gespeichert, bitte füge sie noch einmal hinzu.</div>' : ''}
+    <div class="drop" id="drop">
+      <p><b>Fotos hierher ziehen</b> oder:</p>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="camBtn" type="button">Foto aufnehmen</button>
+        <button class="btn btn-secondary" id="galBtn" type="button">Aus Galerie wählen</button>
+      </div>
+      <p class="muted" style="margin-bottom:0">${n} von ${MAX} Fotos${n >= MAX ? ' (Maximum erreicht)' : ''}</p>
+      <input type="file" id="camInput" accept="image/*" capture="environment" multiple hidden>
+      <input type="file" id="galInput" accept="image/*" multiple hidden>
+    </div>
+    <div id="upMsg"></div>
+    <div class="thumbs" id="thumbs">${imgs.map((b, i) => `
+      <div class="thumb">
+        <img class="timg" src="${esc(b.origUrl)}" alt="Foto ${i + 1}">
+        ${i === 0 ? '<span class="badge">Hauptbild</span>' : ''}
+        <div class="tb">
+          <button type="button" data-move="${i}" data-dir="-1" aria-label="Nach vorne" ${i === 0 ? 'disabled' : ''}>&#9664;</button>
+          <button type="button" class="del" data-del="${b.id}" aria-label="Foto entfernen">&#10005;</button>
+          <button type="button" data-move="${i}" data-dir="1" aria-label="Nach hinten" ${i === n - 1 ? 'disabled' : ''}>&#9654;</button>
+        </div>
+      </div>`).join('')}</div>
+    ${n || state.text ? `<p style="margin-top:18px"><button class="btn btn-secondary btn-small" id="resetBtn" type="button">Alles verwerfen und neu beginnen</button></p>` : ''}`;
+  const drop = $('#drop');
+  $('#camBtn').onclick = () => $('#camInput').click();
+  $('#galBtn').onclick = () => $('#galInput').click();
+  for (const id of ['camInput', 'galInput']) $('#' + id).onchange = (e) => { addFiles([...e.target.files]); e.target.value = ''; };
+  ['dragenter', 'dragover'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('over'); }));
+  drop.addEventListener('drop', (e) => addFiles([...(e.dataTransfer?.files || [])]));
+  const rb = $('#resetBtn');
+  if (rb) rb.onclick = resetAll;
+}
+async function addFiles(files) {
+  files = files.filter((f) => f.type.startsWith('image/') || /\.(jpe?g|png|webp|gif|bmp|avif|hei[cf])$/i.test(f.name));
+  if (!files.length) return toast('Bitte wähle Bilddateien aus.');
+  const room = MAX - imgs.length;
+  if (room <= 0) return toast('Es sind höchstens 6 Fotos erlaubt.');
+  const notes = [];
+  if (files.length > room) { files = files.slice(0, room); notes.push(`Es wurden nur ${room} Foto(s) übernommen (Maximum 6).`); }
+  $('#upMsg').innerHTML = spinner('Fotos werden geladen ...');
+  for (const f of files) {
+    try {
+      const orig = await blobToCanvas(f, MAX_EDGE);
+      const origBlob = await canvasBlob(orig, 'image/jpeg', 0.92);
+      imgs.push({ id: 'i' + nextId++, name: f.name, orig, origBlob, origUrl: URL.createObjectURL(origBlob), enhBlob: null, enhUrl: null, wahl: 'verbessert', methode: '', hinweis: '' });
+    } catch {
+      notes.push(isHeic(f)
+        ? `"${f.name}" ist im Format HEIC (iPhone) und kann dieser Browser nicht lesen. Lösung am iPhone: Einstellungen, Kamera, Formate, "Maximale Kompatibilität" wählen. Oder das Foto in der Fotos-App teilen und als JPG speichern. Am Computer hilft Safari.`
+        : `"${f.name}" konnte nicht gelesen werden. Bitte nimm ein JPG-, PNG- oder WebP-Foto.`);
+    }
+  }
+  restoredWithoutImages = false;
+  step1($('#view'));
+  if (notes.length) $('#upMsg').innerHTML = `<div class="notice warn">${notes.map(esc).join('<br>')}</div>`;
+  renderNav();
+}
+function freeImg(b) { try { URL.revokeObjectURL(b.origUrl); if (b.enhUrl) URL.revokeObjectURL(b.enhUrl); } catch { /* ignorieren */ } }
+function removeImage(id) { const b = imgs.find((x) => x.id === id); if (b) freeImg(b); imgs = imgs.filter((x) => x.id !== id); render(); }
+function resetAll() {
+  if (!confirm('Wirklich alles verwerfen? Fotos und Texte gehen verloren.')) return;
+  imgs.forEach(freeImg);
+  imgs = [];
+  state = freshState();
+  ergebnis = null;
+  restoredWithoutImages = false;
+  save();
+  render();
+}
+
+// ===== Bildbearbeitung (alles im Browser) =====
+const canvasFilterOk = (() => { try { const x = newCanvas(1, 1).getContext('2d'); x.filter = 'blur(1px)'; return x.filter === 'blur(1px)'; } catch { return false; } })();
+
+/** Box-Blur (3 Durchgänge ~ Gauss) auf RGBA-Daten; Rand wird geklemmt. */
+function blurData(src, w, h, r) {
+  r = Math.max(1, Math.round(r));
+  let a = new Uint8ClampedArray(src);
+  let b = new Uint8ClampedArray(src.length);
+  const pass = (from, to, horiz) => {
+    const len = horiz ? w : h, lines = horiz ? h : w, step = horiz ? 4 : w * 4, lineStep = horiz ? w * 4 : 4;
+    const div = 2 * r + 1;
+    for (let l = 0; l < lines; l++) {
+      const base = l * lineStep;
+      for (let ch = 0; ch < 4; ch++) {
+        let sum = 0;
+        for (let k = -r; k <= r; k++) sum += from[base + Math.min(len - 1, Math.max(0, k)) * step + ch];
+        for (let i = 0; i < len; i++) {
+          to[base + i * step + ch] = sum / div;
+          const add = Math.min(len - 1, i + r + 1), rem = Math.max(0, i - r);
+          sum += from[base + add * step + ch] - from[base + rem * step + ch];
+        }
+      }
+    }
+  };
+  for (let i = 0; i < 3; i++) { pass(a, b, true); pass(b, a, false); }
+  return a;
+}
+/** Weichzeichnen eines Canvas: Canvas-Filter blur(Npx), sonst eigener Box-Blur auf verkleinerter Kopie. */
+function blurCanvas(src, px) {
+  const w = src.width, h = src.height;
+  const out = newCanvas(w, h);
+  const x = out.getContext('2d');
+  if (canvasFilterOk) {
+    const m = Math.ceil(px * 3); // Rand überstehen lassen, damit die Kanten nicht ausbleichen
+    x.filter = `blur(${px}px)`;
+    x.drawImage(src, -m, -m, w + 2 * m, h + 2 * m);
+    return out;
+  }
+  const k = Math.max(1, Math.round(px / 4));
+  const sw = Math.max(1, Math.round(w / k)), sh = Math.max(1, Math.round(h / k));
+  const small = newCanvas(sw, sh);
+  small.getContext('2d').drawImage(src, 0, 0, sw, sh);
+  const id = small.getContext('2d').getImageData(0, 0, sw, sh);
+  small.getContext('2d').putImageData(new ImageData(blurData(id.data, sw, sh, Math.max(1, px / k)), sw, sh), 0, 0);
+  x.imageSmoothingQuality = 'high';
+  x.drawImage(small, 0, 0, w, h);
+  return out;
+}
+/** Auto-Verbesserung: Histogramm-Kontrast, Helligkeit (Gamma), leichte Sättigung, Unschärfemaske. */
+function autoEnhance(src) {
+  const w = src.width, h = src.height;
+  const out = newCanvas(w, h);
+  const ctx = out.getContext('2d');
+  ctx.drawImage(src, 0, 0);
+  const img = ctx.getImageData(0, 0, w, h);
+  const d = img.data;
+  const hist = new Uint32Array(256);
+  for (let i = 0; i < d.length; i += 4) hist[(d[i] * 299 + d[i + 1] * 587 + d[i + 2] * 114) / 1000 | 0]++;
+  const total = w * h, clip = total * 0.005;
+  let lo = 0, hi = 255, acc = 0;
+  for (let i = 0; i < 256; i++) { acc += hist[i]; if (acc > clip) { lo = i; break; } }
+  acc = 0;
+  for (let i = 255; i >= 0; i--) { acc += hist[i]; if (acc > clip) { hi = i; break; } }
+  if (hi - lo < 60) { const mid = (hi + lo) / 2; lo = Math.max(0, mid - 30); hi = Math.min(255, mid + 30); }
+  // Mittelwert nach der Spreizung -> Gamma Richtung ~0,52
+  let sum = 0;
+  for (let i = 0; i < 256; i++) sum += hist[i] * Math.min(1, Math.max(0, (i - lo) / (hi - lo)));
+  const mean = Math.min(0.9, Math.max(0.1, sum / total));
+  let gamma = Math.log(0.52) / Math.log(mean);
+  gamma = 1 + (Math.min(1.4, Math.max(0.7, gamma)) - 1) * 0.7;
+  const lut = new Uint8ClampedArray(256);
+  for (let i = 0; i < 256; i++) lut[i] = 255 * Math.pow(Math.min(1, Math.max(0, (i - lo) / (hi - lo))), gamma);
+  const SAT = 1.12;
+  for (let i = 0; i < d.length; i += 4) {
+    const r = lut[d[i]], g = lut[d[i + 1]], b = lut[d[i + 2]];
+    const y = 0.299 * r + 0.587 * g + 0.114 * b;
+    d[i] = y + (r - y) * SAT; d[i + 1] = y + (g - y) * SAT; d[i + 2] = y + (b - y) * SAT;
+  }
+  // Unscharf maskieren
+  const radius = Math.max(1, Math.round(Math.max(w, h) / 900));
+  const blurred = blurData(d, w, h, radius);
+  const AMOUNT = 0.7;
+  for (let i = 0; i < d.length; i += 4) {
+    for (let c = 0; c < 3; c++) { const diff = d[i + c] - blurred[i + c]; if (diff > 2 || diff < -2) d[i + c] = d[i + c] + AMOUNT * diff; }
+  }
+  ctx.putImageData(img, 0, 0);
+  return out;
+}
+
+// --- Freistellung (imgly) per dynamischem Import vom CDN ---
+const cut = { fn: null, failed: false, loading: null, reason: '' };
+const IMGLY_URLS = [
+  `https://cdn.jsdelivr.net/npm/@imgly/background-removal@${IMGLY_VERSION}/dist/index.mjs`,
+  `https://unpkg.com/@imgly/background-removal@${IMGLY_VERSION}/dist/index.mjs`,
+  `https://cdn.jsdelivr.net/npm/@imgly/background-removal@${IMGLY_VERSION}/+esm`,
+];
+let cutProgress = null;
+async function loadCutout(ms = 25000) {
+  if (cut.fn) return cut.fn;
+  if (cut.failed) throw new Error(cut.reason || 'Freistellung nicht verfügbar');
+  if (!cut.loading) {
+    cut.loading = (async () => {
+      let last;
+      for (const url of IMGLY_URLS) {
+        try {
+          const mod = await withTimeout(import(/* webpackIgnore: true */ url), ms, 'Das Laden der Freistellung hat zu lange gedauert');
+          const fn = mod.removeBackground || mod.default?.removeBackground || (typeof mod.default === 'function' ? mod.default : null);
+          if (fn) return (cut.fn = fn);
+          last = new Error('Freistellungs-Modul unvollständig');
+        } catch (e) { last = e; }
+      }
+      throw last || new Error('Freistellung nicht ladbar');
+    })();
+  }
+  try { return await cut.loading; } catch (e) { cut.failed = true; cut.reason = String(e?.message || e); cut.loading = null; throw e; }
+}
+async function makeMask(b, firstImage) {
+  const fn = await loadCutout();
+  const png = await withTimeout(
+    Promise.resolve(fn(b.origBlob, { model: 'small', output: { format: 'image/png' }, progress: (key, cur, tot) => { if (cutProgress) cutProgress(key, cur, tot); }, publicPath: window.IMGLY_PUBLIC_PATH || undefined })),
+    firstImage ? 150000 : 60000, 'Die Freistellung hat zu lange gedauert');
+  const m = await blobToCanvas(png);
+  // Plausibilität: Maske darf nicht (fast) leer oder (fast) komplett voll sein
+  const t = newCanvas(64, 64);
+  t.getContext('2d').drawImage(m, 0, 0, 64, 64);
+  const px = t.getContext('2d').getImageData(0, 0, 64, 64).data;
+  let on = 0;
+  for (let i = 3; i < px.length; i += 4) on += px[i] / 255;
+  const cov = on / 4096;
+  if (cov < 0.03 || cov > 0.97) throw new Error('Kein Objekt erkannt');
+  return m;
+}
+/** Maske aus einem Ellipsen-Verlauf (Mitte scharf, weicher Übergang, Rand unscharf). */
+function focusMask(w, h) {
+  const m = newCanvas(w, h);
+  const x = m.getContext('2d');
+  x.save();
+  x.scale(1, h / w);
+  const cx = w / 2, cy = (h / 2) * (w / h), r = w / 2;
+  const g = x.createRadialGradient(cx, cy, r * 0.5, cx, cy, r * 0.98);
+  g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+  x.fillStyle = g;
+  x.fillRect(0, 0, w, h * (w / h));
+  x.restore();
+  return m;
+}
+function compose(sharp, mask, blurPx, cutoutMask) {
+  const w = sharp.width, h = sharp.height;
+  const out = newCanvas(w, h);
+  const x = out.getContext('2d');
+  x.drawImage(blurCanvas(sharp, blurPx), 0, 0);
+  if (cutoutMask) {
+    // Objekt (aufgeweitet) aus dem Hintergrund entfernen und nur den Hintergrund weichzeichnen,
+    // damit die Objektfarbe nicht als Schein um das Objekt "ausblutet".
+    const bg = newCanvas(w, h);
+    const b = bg.getContext('2d');
+    b.drawImage(sharp, 0, 0);
+    b.globalCompositeOperation = 'destination-out';
+    const grow = blurCanvas(cutoutMask, Math.max(2, Math.max(w, h) / 250));
+    for (let i = 0; i < 4; i++) b.drawImage(grow, 0, 0);
+    x.drawImage(blurCanvas(bg, blurPx * 2.5), 0, 0);
+    x.drawImage(blurCanvas(bg, blurPx), 0, 0);
+  }
+  const fg = newCanvas(w, h);
+  const f = fg.getContext('2d');
+  f.drawImage(sharp, 0, 0);
+  f.globalCompositeOperation = 'destination-in';
+  f.drawImage(mask, 0, 0);
+  x.drawImage(fg, 0, 0);
+  return out;
+}
+async function processOne(b, idx, total) {
+  if (!b.sharp) b.sharp = autoEnhance(b.orig);
+  let result = b.sharp, methode = 'ohne-blur', hinweis = '';
+  if (state.bgOn && state.blur > 0) {
+    const blurPx = Math.max(1, (state.blur / 100) * 0.03 * Math.max(b.sharp.width, b.sharp.height));
+    if (!b.mask && !b.maskFailed && !cut.failed) {
+      setBusy(`Bild ${idx} von ${total}: Objekt wird freigestellt (beim ersten Mal wird ein Modell geladen) ...`);
+      try { b.mask = await makeMask(b, idx === 1); } catch (e) { b.maskFailed = true; b.maskReason = String(e?.message || e); if (!/Kein Objekt/.test(b.maskReason)) { cut.failed = true; cut.reason = b.maskReason; } }
+    }
+    if (b.mask) {
+      const soft = blurCanvas(b.mask, 1.2);
+      result = compose(b.sharp, soft, blurPx, b.mask);
+      methode = 'freistellung';
+    } else {
+      result = compose(b.sharp, focusMask(b.sharp.width, b.sharp.height), blurPx);
+      methode = 'fokus-blur';
+      hinweis = /Kein Objekt/.test(b.maskReason || '') ? 'Das Objekt wurde nicht sicher erkannt. Es wurde stattdessen die Bildmitte scharf gelassen und der Rand weichgezeichnet.'
+        : 'Die automatische Freistellung ist hier nicht verfügbar (z. B. offline oder die Datei wurde direkt per Doppelklick geöffnet). Stattdessen bleibt die Bildmitte scharf und der Rand wird weichgezeichnet.';
+    }
+  }
+  const blob = await canvasBlob(result, 'image/jpeg', 0.9);
+  if (b.enhUrl) URL.revokeObjectURL(b.enhUrl);
+  b.enhBlob = blob; b.enhUrl = URL.createObjectURL(blob); b.methode = methode; b.hinweis = hinweis;
+}
+function setBusy(t) {
+  busy = t;
+  if (state.schritt === 2 && $('#enhBusyText')) $('#enhBusyText').textContent = t;
+}
+let enhRun = 0;
+async function runEnhance(force = false) {
+  if (busy) return;
+  const todo = imgs.filter((b) => force || !b.enhBlob);
+  if (!todo.length) return;
+  const myRun = ++enhRun;
+  if (force) todo.forEach((b) => { b.enhBlob = null; });
+  let i = 0;
+  const paint = () => { if (state.schritt === 2 && $('#enhCards')) { $('#enhCards').innerHTML = imgs.map(enhCard).join(''); } };
+  setBusy(`Bild 1 von ${todo.length} wird verbessert ...`);
+  if (state.schritt === 2) { $('#enhBusy').innerHTML = `<div class="busy" role="status"><span class="spinner"></span><span id="enhBusyText">${esc(busy)}</span></div><progress id="enhBar" max="${todo.length}" value="0" style="width:100%"></progress><div class="muted" id="dlInfo"></div>`; renderNav(); }
+  cutProgress = (key, cur, tot) => { const el = $('#dlInfo'); if (el && tot) el.textContent = `Modell wird geladen: ${Math.round((cur / tot) * 100)} %`; };
+  for (const b of todo) {
+    i++;
+    setBusy(`Bild ${i} von ${todo.length} wird verbessert ...`);
+    await sleep(20);
+    try { await processOne(b, i, todo.length); } catch (e) { b.fehler = String(e?.message || e); b.enhBlob = b.origBlob; b.enhUrl = b.origUrl; b.wahl = 'original'; b.hinweis = 'Dieses Bild konnte nicht verbessert werden, das Original wird verwendet.'; }
+    const bar = $('#enhBar'); if (bar) bar.value = i;
+    paint();
+  }
+  cutProgress = null;
+  busy = null;
+  if (state.schritt === 2) { $('#enhBusy').innerHTML = ''; renderNav(); const r = $('#recalc'); if (r) r.disabled = false; toast('Bilder sind fertig.'); }
+}
+
+// ===== Schritt 2: Bilder verbessern =====
+function step2(v) {
+  v.innerHTML = `
+    <h1>Schritt 2: Bilder verbessern</h1>
+    <p class="lead">Das Programm macht deine Fotos automatisch heller, kontrastreicher und schärfer und kann den Hintergrund unscharf machen, damit dein Artikel besser wirkt. Alles passiert auf deinem Gerät. Tippe auf ein Bild, um zwischen Original und verbessert zu wechseln.</p>
+    <div class="card">
+      <label class="check" style="margin-top:0"><input type="checkbox" id="bgOn" ${state.bgOn ? 'checked' : ''}><span>Hintergrund unscharf machen ${help('Der Artikel bleibt scharf, der Hintergrund wird weichgezeichnet. Das wirkt professioneller und lenkt nicht ab.')}</span></label>
+      <label for="blur">Stärke der Hintergrund-Unschärfe: <b id="blurVal">${state.blur}</b> ${help('0 = Hintergrund bleibt scharf. 50 = normal. 100 = sehr starke Unschärfe. Nach dem Loslassen wird neu berechnet.')}</label>
+      <input type="range" id="blur" min="0" max="100" step="5" value="${state.blur}">
+      <button class="btn btn-secondary btn-small" id="recalc" type="button" ${busy ? 'disabled' : ''}>Neu berechnen</button>
+      ${cut.failed ? '<button class="btn btn-secondary btn-small" id="retryCut" type="button" style="margin-left:8px">Freistellung noch einmal versuchen</button>' : ''}
+    </div>
+    <div id="enhBusy">${busy ? `<div class="busy" role="status"><span class="spinner"></span><span id="enhBusyText">${esc(busy)}</span></div>` : ''}</div>
+    <div id="enhCards">${imgs.map(enhCard).join('')}</div>`;
+  $('#bgOn').onchange = (e) => { state.bgOn = e.target.checked; save(); runEnhance(true); };
+  $('#blur').oninput = (e) => { state.blur = Number(e.target.value); $('#blurVal').textContent = state.blur; save(); };
+  $('#blur').onchange = () => runEnhance(true);
+  $('#recalc').onclick = () => runEnhance(true);
+  const rc = $('#retryCut');
+  if (rc) rc.onclick = () => { cut.failed = false; cut.loading = null; cut.reason = ''; imgs.forEach((b) => { b.maskFailed = false; }); runEnhance(true); };
+  if (imgs.some((b) => !b.enhBlob) && !busy) runEnhance();
+}
+const METHODS = { freistellung: 'Freigestellt', 'fokus-blur': 'Fokus-Unschärfe', 'ohne-blur': 'Ohne Unschärfe' };
+function enhCard(b, i) {
+  const sel = b.wahl;
+  const m = METHODS[b.methode] || '';
+  return `<div class="card tight" data-card="${b.id}">
+    <div class="label" style="margin-top:0">Foto ${i + 1}${i === 0 ? ' (Hauptbild)' : ''} ${m && !b.fehler ? `<span class="tag" data-method="${esc(b.methode)}">${m}</span>` : ''}</div>
+    ${b.enhBlob ? `<div class="ba">
+        <figure class="${sel === 'original' ? 'sel' : ''}" data-pick="${b.id}" data-w="original"><img src="${esc(b.origUrl)}" alt="Original"><figcaption>Original</figcaption></figure>
+        <figure class="${sel === 'verbessert' ? 'sel' : ''}" data-pick="${b.id}" data-w="verbessert"><img src="${esc(b.enhUrl)}" alt="Verbessert"><figcaption>Verbessert</figcaption></figure>
+      </div>
+      <div class="seg" role="radiogroup" aria-label="Welche Version verwenden?">
+        <label><input type="radio" name="w-${b.id}" value="original" data-wahl="${b.id}" ${sel === 'original' ? 'checked' : ''}><span>Original nehmen</span></label>
+        <label><input type="radio" name="w-${b.id}" value="verbessert" data-wahl="${b.id}" ${sel === 'verbessert' ? 'checked' : ''}><span>Verbessert nehmen</span></label>
+      </div>
+      ${b.hinweis ? `<div class="notice info" style="margin-bottom:0">${esc(b.hinweis)}</div>` : ''}`
+      : `<div class="busy"><span class="spinner"></span><span>Wartet ...</span></div>`}
+  </div>`;
+}
+const chosenBlob = (b) => (b.wahl === 'verbessert' && b.enhBlob ? b.enhBlob : b.origBlob);
+
+// ===== KI: Claude Messages API direkt aus dem Browser =====
+const WEB_SEARCH_TOOL = { type: 'web_search_20260209', name: 'web_search', max_uses: 5, user_location: { type: 'approximate', country: 'DE', timezone: 'Europe/Berlin' } };
+const RESULT_SCHEMA = {
+  type: 'object', additionalProperties: false,
+  required: ['titel', 'beschreibung', 'zustand_text', 'ebay_zustand', 'artikelmerkmale', 'kategorie_vorschlag', 'preis', 'hinweise'],
+  properties: {
+    titel: { type: 'string', description: 'eBay-Titel, höchstens 80 Zeichen' },
+    beschreibung: { type: 'string', description: 'Verkaufstext auf Deutsch, Absätze durch Leerzeilen getrennt' },
+    zustand_text: { type: 'string', description: 'Ein bis zwei Sätze zum Zustand' },
+    ebay_zustand: { type: 'string', enum: Object.keys(CONDITIONS) },
+    artikelmerkmale: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['name', 'wert'], properties: { name: { type: 'string' }, wert: { type: 'string' } } } },
+    kategorie_vorschlag: { type: 'string', description: 'Passende eBay-Kategorie als Pfad, z. B. "Auto & Motorrad: Teile > Bremsen"' },
+    preis: {
+      type: 'object', additionalProperties: false, required: ['festpreis', 'auktion_startpreis', 'begruendung', 'vergleich'],
+      properties: {
+        festpreis: { type: 'number', description: 'Vorschlag Festpreis in Euro' },
+        auktion_startpreis: { type: 'number', description: 'Vorschlag Startpreis Auktion in Euro' },
+        begruendung: { type: 'string' },
+        vergleich: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['titel', 'preis', 'url'], properties: { titel: { type: 'string' }, preis: { type: 'string' }, url: { type: 'string' } } } },
+      },
+    },
+    hinweise: { type: 'array', items: { type: 'string' }, description: 'Dinge, die der Verkäufer prüfen oder ergänzen sollte' },
+  },
+};
+const SYSTEM = `Du bist ein erfahrener eBay-Verkaufsberater für Privatpersonen in Deutschland (Marktplatz eBay.de).
+Du bekommst Fotos eines Artikels und optional Stichworte des Verkäufers.
+Vorgehen:
+1. Erkenne den Artikel auf den Fotos.
+2. Recherchiere mit der Websuche vergleichbare, aktuelle Angebote auf ebay.de (gern auch auf kleinanzeigen.de), um einen realistischen Gebrauchtpreis zu finden. Nenne bis zu 5 Vergleiche mit Titel, Preis und der echten URL aus den Suchergebnissen. Erfinde niemals Links oder Preise; wenn du nichts findest, lass die Liste leer und schreibe das in die Begründung.
+3. Antworte am Ende ausschließlich mit einem JSON-Objekt (kein Text davor oder danach) mit den Feldern: titel, beschreibung, zustand_text, ebay_zustand, artikelmerkmale (Liste aus {name, wert}), kategorie_vorschlag, preis ({festpreis, auktion_startpreis, begruendung, vergleich: [{titel, preis, url}]}), hinweise (Liste).
+Regeln:
+- Alle Texte auf Deutsch, freundlich, klar und ehrlich. Erfinde keine Eigenschaften, die auf den Fotos oder in den Stichworten nicht erkennbar sind; Unsicheres gehört in "hinweise" (z. B. "Herstellernummer prüfen").
+- Titel: höchstens 80 Zeichen, die wichtigsten Suchbegriffe zuerst (Marke, Modell, Artikelart, Kompatibilität/Größe), keine Werbefloskeln, keine Großschreibung ganzer Wörter.
+- Beschreibung: kurze Absätze, Leerzeile dazwischen, kein HTML, keine Emojis. Enthält: was es ist, Zustand ehrlich benannt, Lieferumfang, Maße/Kompatibilität soweit bekannt. Kein Hinweis auf Privatverkauf (wird separat ergänzt).
+- ebay_zustand: genau einer von NEW, LIKE_NEW, NEW_OTHER, NEW_WITH_DEFECTS, USED_EXCELLENT, USED_VERY_GOOD, USED_GOOD, USED_ACCEPTABLE, FOR_PARTS_OR_NOT_WORKING.
+- Artikelmerkmale: eBay-übliche Namen auf Deutsch (Marke, Modell, Herstellernummer, Farbe, Material, Kompatibel mit ...). Nur Werte, die sicher oder sehr wahrscheinlich sind.
+- Preise in Euro (Zahl), realistisch für den Gebrauchtmarkt, orientiert am Median der Vergleichsangebote und am Zustand. Der Startpreis für Auktionen liegt deutlich niedriger (typisch 30-60 % des Festpreises, oft 1 Euro). Begründe kurz in ein bis zwei Sätzen.`;
+
+class UiError extends Error { constructor(titel, text, extra = {}) { super(text); this.fehler = { titel, text, ...extra }; } }
+function translateApiError(status, body) {
+  const m = String(body?.error?.message || '');
+  if (status === 401) return new UiError('Schlüssel falsch', 'Der Anthropic-Schlüssel wurde abgelehnt. Bitte prüfe ihn in den Einstellungen (er beginnt mit "sk-ant-").', { einstellungen: true });
+  if (status === 403) return new UiError('Kein Zugriff', 'Dein Anthropic-Konto darf dieses Modell oder diese Funktion nicht nutzen. Du kannst in den Einstellungen ein anderes Modell wählen.', { einstellungen: true });
+  if (status === 404) return new UiError('Modell nicht gefunden', `Das Modell "${settings.model}" gibt es nicht. Bitte prüfe den Namen in den Einstellungen.`, { einstellungen: true });
+  if (status === 413) return new UiError('Zu viele oder zu große Bilder', 'Die Anfrage ist zu groß. Bitte nimm weniger Fotos oder verkleinere sie.');
+  if (status === 429) return new UiError('Zu viele Anfragen', 'Die KI ist gerade ausgelastet oder dein Limit ist erreicht. Bitte warte eine Minute und versuche es erneut.');
+  if (status === 529 || status === 503 || status === 500 || status === 502) return new UiError('KI überlastet', 'Anthropic hat gerade ein Problem oder ist überlastet. Bitte versuche es in ein paar Minuten noch einmal.');
+  if (status === 400 && /credit|balance/i.test(m)) return new UiError('Guthaben aufgebraucht', 'Bei Anthropic ist kein Guthaben mehr vorhanden. Bitte lade es in der Anthropic Console auf (console.anthropic.com).');
+  if (status === 400) return new UiError('KI-Anfrage abgelehnt', `Die KI hat die Anfrage abgelehnt: ${m.slice(0, 220)}`);
+  return new UiError('KI-Fehler', `Anthropic meldet einen Fehler (${status}). Bitte versuche es später erneut.`, { details: m.slice(0, 200) });
+}
+async function callClaude({ content, tools, schema, maxTokens = 8000 }) {
+  const key = settings.apiKey.trim();
+  const messages = [{ role: 'user', content }];
+  let useFallback = true, useFormat = Boolean(schema), pauses = 0;
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const body = { model: settings.model || DEFAULT_MODEL, max_tokens: maxTokens, system: SYSTEM, messages, output_config: { effort: 'medium' } };
+    if (useFormat) body.output_config.format = { type: 'json_schema', schema };
+    if (tools) body.tools = tools;
+    if (useFallback) body.fallbacks = 'default';
+    const headers = { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' };
+    if (useFallback) headers['anthropic-beta'] = 'server-side-fallback-2026-07-01';
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 240000);
+    let res;
+    try {
+      res = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers, body: JSON.stringify(body), signal: ctrl.signal });
+    } catch (e) {
+      throw e?.name === 'AbortError'
+        ? new UiError('Das dauert zu lange', 'Die KI hat nach 4 Minuten nicht geantwortet. Bitte versuche es noch einmal.')
+        : new UiError('Keine Verbindung zur KI', 'Die Verbindung zu Anthropic ist fehlgeschlagen. Prüfe deine Internetverbindung (und ob ein Werbeblocker die Seite stört).');
+    } finally { clearTimeout(timer); }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const m = String(data?.error?.message || '');
+      if (res.status === 400 && useFallback && /fallback|beta/i.test(m)) { useFallback = false; continue; }
+      if (res.status === 400 && useFormat && /format|schema|citation|structured|output_config/i.test(m)) { useFormat = false; continue; }
+      throw translateApiError(res.status, data);
+    }
+    if (data.stop_reason === 'refusal') throw new UiError('KI hat abgelehnt', 'Die KI konnte zu diesem Artikel keinen Text erstellen. Bitte versuche es mit anderen Fotos oder Stichworten.');
+    if (data.stop_reason === 'pause_turn' && pauses++ < 4) { messages.push({ role: 'assistant', content: data.content }); continue; }
+    return (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n');
+  }
+  throw new UiError('KI-Fehler', 'Die KI-Anfrage konnte nicht abgeschlossen werden. Bitte versuche es noch einmal.');
+}
+/** Robustes JSON-Parsing: auch mit Text oder Code-Zäunen um das JSON herum. */
+function extractJson(text) {
+  const s = String(text || '');
+  try { const v = JSON.parse(s.trim()); if (v && typeof v === 'object') return v; } catch { /* weiter */ }
+  const cands = [];
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] !== '{') continue;
+    let depth = 0, inStr = false, esc2 = false;
+    for (let j = i; j < s.length; j++) {
+      const c = s[j];
+      if (inStr) { if (esc2) esc2 = false; else if (c === '\\') esc2 = true; else if (c === '"') inStr = false; continue; }
+      if (c === '"') inStr = true;
+      else if (c === '{') depth++;
+      else if (c === '}' && --depth === 0) { try { cands.push(JSON.parse(s.slice(i, j + 1))); } catch { /* nächster Kandidat */ } i = j; break; }
+    }
+  }
+  const best = cands.filter((c) => c && typeof c === 'object' && ('titel' in c || 'beschreibung' in c)).sort((a, b) => JSON.stringify(b).length - JSON.stringify(a).length)[0];
+  if (best) return best;
+  throw new UiError('Unerwartete KI-Antwort', 'Die KI-Antwort war nicht lesbar. Bitte klicke noch einmal auf "Neu formulieren" oder "Alles neu erkennen".');
+}
+function normalizeResult(r = {}) {
+  const p = r.preis || {};
+  const eurN = (v) => { const n = num(v); return Number.isFinite(n) ? Math.round(n * 100) / 100 : 0; };
+  return {
+    titel: truncateTitle(r.titel, 80),
+    beschreibung: String(r.beschreibung || '').trim(),
+    zustand: CONDITIONS[r.ebay_zustand] ? r.ebay_zustand : 'USED_GOOD',
+    zustandsbeschreibung: String(r.zustand_text || ''),
+    merkmale: (Array.isArray(r.artikelmerkmale) ? r.artikelmerkmale : []).map((m) => ({ name: String(m?.name ?? m?.key ?? ''), wert: String(m?.wert ?? m?.value ?? '') })),
+    kategorie: String(r.kategorie_vorschlag || ''),
+    preis_festpreis: eurN(p.festpreis), preis_startpreis: eurN(p.auktion_startpreis), preis_begruendung: String(p.begruendung || ''),
+    vergleich: (Array.isArray(p.vergleich) ? p.vergleich : []).slice(0, 8).map((v) => ({ titel: String(v?.titel || ''), preis: String(v?.preis ?? ''), url: /^https?:\/\//i.test(String(v?.url || '')) ? String(v.url) : '' })),
+    hinweise: (Array.isArray(r.hinweise) ? r.hinweise : []).map(String),
+  };
+}
+function demoListing(keywords = '', variant = 0) {
+  const k = keywords.trim() || 'Beispielartikel';
+  const intro = ['Zum Verkauf steht', 'Hier biete ich an', 'Ich verkaufe'][variant % 3];
+  return normalizeResult({
+    titel: `${k} - gepflegter Zustand - Beispieltitel (Demo)`,
+    beschreibung: `${intro} ${k} in gepflegtem, gebrauchtem Zustand.\n\nDas ist ein Beispieltext aus dem Demo-Modus. Mit eingetragenem Anthropic-Schlüssel schaut sich die KI deine Fotos an, recherchiert ähnliche Angebote und schreibt hier einen passenden, ehrlichen Verkaufstext.\n\nBitte schau dir die Fotos genau an, sie gehören zur Beschreibung. Bei Fragen melde dich gern.`,
+    ebay_zustand: 'USED_EXCELLENT',
+    zustand_text: 'Leichte Gebrauchsspuren, voll funktionsfähig (Beispielangabe).',
+    artikelmerkmale: [{ name: 'Marke', wert: 'Beispielmarke' }, { name: 'Herstellernummer', wert: '12345' }, { name: 'Farbe', wert: 'Schwarz' }],
+    kategorie_vorschlag: 'Beispielkategorie (Demo) > Unterkategorie',
+    preis: { festpreis: 24.9, auktion_startpreis: 9.9, begruendung: 'Demo: Beispielpreis, keine echte Marktanalyse.', vergleich: [{ titel: 'Beispiel-Angebot A (Demo)', preis: '22,00 EUR', url: '' }, { titel: 'Beispiel-Angebot B (Demo)', preis: '27,50 EUR', url: '' }] },
+    hinweise: ['Dies ist ein Demo-Entwurf. Bitte alle Angaben prüfen.'],
+  });
+}
+async function bilderFuerKI() {
+  const out = [];
+  for (const b of imgs) {
+    const c = await blobToCanvas(chosenBlob(b), AI_EDGE);
+    const blob = await canvasBlob(c, 'image/jpeg', 0.82);
+    const data = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(',')[1]); fr.onerror = rej; fr.readAsDataURL(blob); });
+    out.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data } });
+  }
+  return out;
+}
+
+// ===== Schritt 3: Erkennen & Text =====
+const CHARS = (t) => `${t.length} / 80`;
+function step3(v) {
+  v.innerHTML = `
+    <h1>Schritt 3: Artikel erkennen & Text</h1>
+    <p class="lead">Die KI schaut sich deine Fotos an, sucht ähnliche Angebote im Internet und schreibt Titel, Beschreibung und einen Preisvorschlag. Mit ein paar Stichworten wird das Ergebnis genauer.</p>
+    ${isDemo() ? '<div class="notice demo"><b>Demo-Modus</b>Ohne Anthropic-Schlüssel bekommst du nur einen Beispieltext. <a href="#einstellungen">Schlüssel eintragen</a> für echte Texte.</div>' : ''}
+    <div class="card">
+      <label for="kw" style="margin-top:0">Stichworte (optional) ${help('Zum Beispiel: Marke, Modell, Größe, Fehler. Beispiel: "Bremssattel Golf 4 vorne links".')}</label>
+      <input type="text" id="kw" data-bind="stichworte" value="${esc(state.stichworte)}" placeholder='z. B. "Bremssattel Golf 4 vorne links"' maxlength="300">
+      <label class="check"><input type="checkbox" data-bind="privat" ${state.privat ? 'checked' : ''}><span>Hinweis "Privatverkauf, keine Garantie oder Rücknahme" anhängen ${help('Wird am Ende der Beschreibung automatisch ergänzt. Bei gewerblichen Verkäufen bitte abwählen, dort gelten gesetzliche Rechte.')}</span></label>
+      <button class="btn ${state.text ? 'btn-secondary' : 'btn-ok'}" id="analyze" type="button" style="width:100%;margin-top:10px" ${busy ? 'disabled' : ''}>${state.text ? 'Alles neu erkennen' : 'Artikel erkennen und Text erstellen'}</button>
+    </div>
+    <div id="aiBusy">${busy ? spinner(busy) : ''}</div>
+    <div id="aiErr"></div>
+    <div id="textForm">${state.text ? textForm() : ''}</div>`;
+  $('#analyze').onclick = () => analyze(false);
+  if (state.text) bindTextForm();
+}
+function textForm() {
+  const t = state.text;
+  return `
+    ${state.demoText ? '<div class="notice demo"><b>Beispieltext (Demo)</b>Dieser Text stammt nicht von der KI. Bitte ersetze ihn oder trage in den Einstellungen deinen Schlüssel ein.</div>' : ''}
+    ${t.hinweise?.length ? `<div class="notice info"><b>Bitte prüfen</b><ul>${t.hinweise.map((w) => `<li>${esc(w)}</li>`).join('')}</ul></div>` : ''}
+    <div class="card">
+      <label for="titel" style="margin-top:0">Titel ${help('Maximal 80 Zeichen. Die wichtigsten Suchwörter (Marke, Modell, Artikelart) gehören nach vorne.')}</label>
+      <input type="text" id="titel" data-bind="text.titel" value="${esc(t.titel)}" maxlength="120">
+      <div class="counter ${t.titel.length > 80 ? 'bad' : ''}" id="titelCount">${CHARS(t.titel)}</div>
+      <label for="beschr">Beschreibung</label>
+      <textarea id="beschr" data-bind="text.beschreibung" rows="9">${esc(t.beschreibung)}</textarea>
+      <div class="row">
+        <div><label for="zust">Zustand ${help('Sei ehrlich: Das vermeidet Rückfragen und Ärger.')}</label>
+          <select id="zust" data-bind="text.zustand">${Object.entries(CONDITIONS).map(([k, l]) => `<option value="${k}" ${t.zustand === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></div>
+        <div><label for="zb">Zustand kurz beschrieben</label>
+          <input type="text" id="zb" data-bind="text.zustandsbeschreibung" value="${esc(t.zustandsbeschreibung)}" maxlength="300"></div>
+      </div>
+      <div class="row" style="margin-top:8px"><input type="text" id="hint" placeholder='Wunsch für neuen Text, z. B. "kürzer" oder "mehr Details"' maxlength="200" aria-label="Wunsch für neuen Text">
+        <button class="btn btn-secondary" id="rewrite" type="button" ${busy ? 'disabled' : ''}>Neu formulieren</button></div>
+    </div>
+    <div class="card">
+      <div class="label" style="margin-top:0">Artikelmerkmale ${help('Angaben wie Marke oder Herstellernummer. Manche Kategorien verlangen bestimmte Merkmale.')}</div>
+      <div id="kvList">${t.merkmale.map(kvRow).join('')}</div>
+      <button class="btn btn-secondary btn-small" id="kvAdd" type="button">Merkmal hinzufügen</button>
+    </div>
+    <div class="card">
+      <label for="kat" style="margin-top:0">Kategorie-Vorschlag ${help('Die Kategorie bestimmt, wo dein Artikel bei eBay gefunden wird. Bei eBay gibst du den Artikel einfach in das Suchfeld "Kategorie" ein, eBay schlägt dann passende vor.')}</label>
+      <input type="text" id="kat" data-bind="text.kategorie" value="${esc(t.kategorie)}" maxlength="200">
+    </div>
+    <div class="card">
+      <div class="label" style="margin-top:0">Preisvorschlag der KI ${help('Basiert auf ähnlichen Angeboten im Internet und dem Zustand. Du legst den Preis in Schritt 4 selbst fest.')}</div>
+      <div class="stats" style="grid-template-columns:1fr 1fr"><div><b>${eur(t.preis_festpreis)}</b><small>Festpreis</small></div><div><b>${eur(t.preis_startpreis)}</b><small>Startpreis Auktion</small></div></div>
+      <p class="muted">${esc(t.preis_begruendung)}</p>
+      ${state.vergleich.length ? `<div class="label">Ähnliche Angebote</div><ul class="muted">${state.vergleich.map((b) => `<li>${b.url ? `<a href="${esc(b.url)}" target="_blank" rel="noopener noreferrer">${esc(b.titel)}</a>` : esc(b.titel)} - ${esc(b.preis)}</li>`).join('')}</ul>` : '<p class="muted">Keine Vergleichsangebote verfügbar.</p>'}
+    </div>`;
+}
+const kvRow = (m, i) => `<div class="kv"><input type="text" placeholder="Name (z. B. Marke)" value="${esc(m.name)}" data-kv="${i}" data-f="name" aria-label="Merkmal-Name"><input type="text" placeholder="Wert" value="${esc(m.wert)}" data-kv="${i}" data-f="wert" aria-label="Merkmal-Wert"><button class="btn btn-danger btn-small" type="button" data-kvdel="${i}" aria-label="Merkmal entfernen">&#10005;</button></div>`;
+function bindTextForm() {
+  $('#rewrite').onclick = () => analyze(true);
+  $('#kvAdd').onclick = () => { state.text.merkmale.push({ name: '', wert: '' }); save(); $('#kvList').innerHTML = state.text.merkmale.map(kvRow).join(''); };
+}
+async function analyze(rewrite) {
+  if (busy) return;
+  const hint = $('#hint')?.value || '';
+  busy = rewrite ? 'Text wird neu formuliert ...' : isDemo() ? 'Beispieltext wird erstellt ...' : 'Die KI schaut sich deine Fotos an und sucht ähnliche Angebote (das dauert bis zu zwei Minuten) ...';
+  $('#aiBusy').innerHTML = spinner(busy);
+  $('#aiErr').innerHTML = '';
+  $('#analyze').disabled = true;
+  renderNav();
+  try {
+    let r;
+    if (isDemo()) {
+      await sleep(700);
+      r = demoListing(state.stichworte, rewrite ? Math.floor(Math.random() * 3) : 0);
+    } else {
+      const parts = await bilderFuerKI();
+      let text = `Erstelle den eBay-Entwurf für diesen Artikel.\nStichworte des Verkäufers: ${state.stichworte.trim() || '(keine)'}`;
+      if (rewrite && state.text) {
+        text += `\n\nDas ist der bisherige Entwurf:\n${JSON.stringify({ titel: state.text.titel, beschreibung: state.text.beschreibung, zustand: state.text.zustand, artikelmerkmale: state.text.merkmale })}\nFormuliere Titel und Beschreibung neu und anders, behalte die Fakten bei. Eine neue Websuche ist nicht nötig; gib im Feld preis die bisherigen Preise unverändert zurück.${hint.trim() ? `\nWunsch des Verkäufers: ${hint.trim()}` : ''}`;
+      }
+      parts.push({ type: 'text', text });
+      const raw = await callClaude({ content: parts, tools: rewrite ? undefined : [WEB_SEARCH_TOOL], schema: RESULT_SCHEMA, maxTokens: rewrite ? 4000 : 10000 });
+      r = normalizeResult(extractJson(raw));
+    }
+    if (rewrite && state.text) {
+      state.text.titel = r.titel || state.text.titel;
+      state.text.beschreibung = r.beschreibung || state.text.beschreibung;
+    } else {
+      state.text = { titel: r.titel, beschreibung: r.beschreibung, zustand: r.zustand, zustandsbeschreibung: r.zustandsbeschreibung, merkmale: r.merkmale, kategorie: r.kategorie, preis_festpreis: r.preis_festpreis, preis_startpreis: r.preis_startpreis, preis_begruendung: r.preis_begruendung, hinweise: r.hinweise };
+      state.vergleich = r.vergleich;
+      const vk = state.verkauf;
+      vk.preis = vk.preis || (r.preis_festpreis ? String(r.preis_festpreis).replace('.', ',') : '');
+      vk.startpreis = vk.startpreis || (r.preis_startpreis ? String(r.preis_startpreis).replace('.', ',') : '');
+      vk.sofortpreis = vk.sofortpreis || vk.preis;
+    }
+    state.demoText = isDemo();
+    save();
+    busy = null;
+    step3($('#view'));
+    toast(rewrite ? 'Neuer Text ist fertig.' : 'Fertig! Bitte prüfe alles und passe es an.');
+  } catch (e) {
+    busy = null;
+    step3($('#view'));
+    $('#aiErr').innerHTML = errBox(e.fehler || { titel: 'Fehler', text: String(e?.message || e) });
+  }
+  renderNav();
+}
+
+// ===== Schritt 4: Verkaufsart =====
+const ART = [
+  ['festpreis', 'Sofort-Kaufen (Festpreis)', 'Du bestimmst den Preis, der Käufer kauft sofort. Einfach und planbar.'],
+  ['auktion', 'Auktion (Bieten)', 'Käufer bieten, das höchste Gebot gewinnt. Gut für gefragte oder seltene Dinge.'],
+  ['auktion_sofort', 'Auktion + Sofort-Kaufen', 'Bieten möglich, wer will, kauft vorher sofort zum festen Preis.'],
+];
+const VERSAND = { paket: 'Paket (DHL/Hermes, bis 31,5 kg)', paeckchen: 'Päckchen (kleine, leichte Artikel)', brief: 'Brief / Warensendung (sehr leicht, flach)', abholung: 'Nur Abholung', beides: 'Versand oder Abholung' };
+const RUECK = { keine: 'Keine Rücknahme (Privatverkauf)', '14': '14 Tage Rückgabe', '30': '30 Tage Rückgabe' };
+function step4(v) {
+  const vk = state.verkauf;
+  v.innerHTML = `
+    <h1>Schritt 4: Verkaufsart & Versand</h1>
+    <p class="lead">Wie möchtest du verkaufen?</p>
+    <div class="tiles" role="radiogroup" aria-label="Verkaufsart">${ART.map(([k, t, d]) => `<button type="button" class="tile ${vk.art === k ? 'sel' : ''}" role="radio" aria-checked="${vk.art === k}" data-art="${k}"><b>${t}</b><span>${d}</span></button>`).join('')}</div>
+    <div class="card" id="preise">${preiseForm()}</div>
+    <div class="card">
+      <div class="label" style="margin-top:0">Versand & Zahlung</div>
+      <label for="vart">Versandart ${help('Wie kommt der Artikel zum Käufer? Wähle, was zu Größe und Gewicht passt. Schwere oder große Dinge gehen als Paket, Kleinkram als Päckchen oder Brief.')}</label>
+      <select id="vart" data-bind="verkauf.versandArt">${Object.entries(VERSAND).map(([k, l]) => `<option value="${k}" ${vk.versandArt === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>
+      <label for="vkost">Versandkosten in Euro ${help('Was der Käufer für den Versand zahlt. 0 oder leer = kostenloser Versand. Tipp: Schau bei DHL oder Hermes nach dem Preis für dein Paket.')}</label>
+      <input type="text" id="vkost" inputmode="decimal" data-bind="verkauf.versandKosten" value="${esc(vk.versandKosten)}" placeholder="z. B. 4,99 (leer = kostenlos)">
+      <label for="rueck">Rückgabe</label>
+      <select id="rueck" data-bind="verkauf.rueckgabe">${Object.entries(RUECK).map(([k, l]) => `<option value="${k}" ${vk.rueckgabe === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>
+      <div class="notice info"><b>Zahlung</b>Die Bezahlung läuft über die eBay-Zahlungsabwicklung (Karte, PayPal, Überweisung u. a.). Du musst dafür bei eBay nur deine Bankverbindung hinterlegen und nichts weiter einstellen.</div>
+    </div>`;
+}
+function preiseForm() {
+  const vk = state.verkauf, t = state.text || {};
+  const fest = vk.art === 'festpreis';
+  const days = [1, 3, 5, 7, 10];
+  return `
+    ${fest ? `<label for="p1" style="margin-top:0">Festpreis in Euro ${help('Der Preis, zu dem Käufer sofort kaufen können.')}</label>
+      <input type="text" id="p1" inputmode="decimal" data-bind="verkauf.preis" value="${esc(vk.preis)}" placeholder="z. B. 24,90"><p class="muted">KI-Vorschlag: ${eur(t.preis_festpreis)}</p>` : `
+      <label for="p2" style="margin-top:0">Startpreis in Euro ${help('Mit diesem Preis beginnt die Auktion. Ein niedriger Startpreis lockt mehr Bieter an.')}</label>
+      <input type="text" id="p2" inputmode="decimal" data-bind="verkauf.startpreis" value="${esc(vk.startpreis)}" placeholder="z. B. 1,00"><p class="muted">KI-Vorschlag: ${eur(t.preis_startpreis)}</p>
+      ${vk.art === 'auktion_sofort' ? `<label for="p3">Sofort-Kaufen-Preis in Euro</label><input type="text" id="p3" inputmode="decimal" data-bind="verkauf.sofortpreis" value="${esc(vk.sofortpreis)}">` : ''}
+      <label for="p4">Mindestpreis (optional) ${help('Wird dieser Preis nicht erreicht, musst du nicht verkaufen. Bei eBay kostet diese Option eine Gebühr und mindert das Interesse der Bieter. Meist besser leer lassen.')}</label>
+      <input type="text" id="p4" inputmode="decimal" data-bind="verkauf.reservePreis" value="${esc(vk.reservePreis)}" placeholder="leer lassen = kein Mindestpreis">
+      <label for="dauer">Dauer der Auktion</label>
+      <select id="dauer" data-bind="verkauf.dauerTage" data-num="1">${days.map((d) => `<option value="${d}" ${Number(vk.dauerTage) === d ? 'selected' : ''}>${d} ${d === 1 ? 'Tag' : 'Tage'}</option>`).join('')}</select>`}
+    ${fest ? `<label class="check" style="margin-top:16px"><input type="checkbox" data-bind="verkauf.preisvorschlag.aktiv" data-rerender="preise" ${vk.preisvorschlag.aktiv ? 'checked' : ''}><span>Preisvorschlag erlauben ${help('Käufer können dir einen niedrigeren Preis anbieten. Du kannst annehmen, ablehnen oder gegenbieten. Optional entscheidet eBay automatisch anhand deiner Grenzen.')}</span></label>
+      ${vk.preisvorschlag.aktiv ? `<div class="row"><div><label for="ba">Automatisch annehmen ab (optional)</label><input type="text" id="ba" inputmode="decimal" data-bind="verkauf.preisvorschlag.annahmeAb" value="${esc(vk.preisvorschlag.annahmeAb)}" placeholder="z. B. 22,00"></div>
+      <div><label for="bd">Automatisch ablehnen unter (optional)</label><input type="text" id="bd" inputmode="decimal" data-bind="verkauf.preisvorschlag.ablehnenUnter" value="${esc(vk.preisvorschlag.ablehnenUnter)}" placeholder="z. B. 15,00"></div></div>` : ''}
+      <label for="menge">Menge ${help('Wie viele Stück du verkaufst. Bei Auktionen ist es immer 1.')}</label>
+      <input type="number" id="menge" min="1" max="999" data-bind="verkauf.menge" data-num="1" value="${esc(state.verkauf.menge)}">` : '<p class="muted">Bei Auktionen wird immer 1 Stück angeboten.</p>'}`;
+}
+
+// ===== Schritt 5: Fertig / Vorschau =====
+const fullDescription = () => state.text.beschreibung.trim() + (state.privat ? `\n\n${PRIVAT_HINWEIS}` : '');
+function priceSummary() {
+  const vk = state.verkauf;
+  return vk.art === 'festpreis' ? `${eur(vk.preis)} (Sofort-Kaufen)`
+    : vk.art === 'auktion' ? `Startpreis ${eur(vk.startpreis)} (Auktion, ${vk.dauerTage} Tage)`
+      : `Startpreis ${eur(vk.startpreis)}, Sofort-Kaufen ${eur(vk.sofortpreis)} (Auktion, ${vk.dauerTage} Tage)`;
+}
+const versandText = () => { const vk = state.verkauf; const k = num(vk.versandKosten); return `${VERSAND[vk.versandArt]}${vk.versandArt === 'abholung' ? '' : Number.isFinite(k) && k > 0 ? `, Versandkosten ${eur(k)}` : ', kostenloser Versand'}`; };
+function summaryRows() {
+  const t = state.text, vk = state.verkauf;
+  const rows = [
+    ['Titel', t.titel], ['Kategorie', t.kategorie || '(selbst wählen)'], ['Zustand', `${CONDITIONS[t.zustand]}${t.zustandsbeschreibung ? ` - ${t.zustandsbeschreibung}` : ''}`],
+    ['Verkaufsart', ART.find((a) => a[0] === vk.art)[1]], ['Preis', priceSummary()],
+  ];
+  if (vk.art === 'festpreis') { rows.push(['Menge', String(vk.menge)]); rows.push(['Preisvorschlag', vk.preisvorschlag.aktiv ? `erlaubt${num(vk.preisvorschlag.annahmeAb) > 0 ? `, automatisch annehmen ab ${eur(vk.preisvorschlag.annahmeAb)}` : ''}${num(vk.preisvorschlag.ablehnenUnter) > 0 ? `, ablehnen unter ${eur(vk.preisvorschlag.ablehnenUnter)}` : ''}` : 'nicht erlaubt']); }
+  else if (num(vk.reservePreis) > 0) rows.push(['Mindestpreis', eur(vk.reservePreis)]);
+  rows.push(['Versand', versandText()], ['Rückgabe', RUECK[vk.rueckgabe]]);
+  for (const m of t.merkmale.filter((m) => m.name && m.wert)) rows.push([`Merkmal: ${m.name}`, m.wert]);
+  return rows;
+}
+const summaryText = () => summaryRows().map(([k, v]) => `${k}: ${v}`).join('\n');
+const mock = (label, value, copyKey) => `<div class="mock"><div class="mock-l">${esc(label)}</div><div class="mock-v">${esc(value)}</div>${copyKey ? `<button class="btn btn-secondary btn-small" type="button" data-copy="${copyKey}">Kopieren</button>` : ''}</div>`;
+function step5(v) {
+  const t = state.text, vk = state.verkauf;
+  const imgSrc = imgs.map((b) => (b.wahl === 'verbessert' && b.enhUrl ? b.enhUrl : b.origUrl));
+  const priceLine = vk.art === 'festpreis' ? `${eur(vk.preis)} <span class="tag">Sofort-Kaufen</span>${vk.preisvorschlag.aktiv ? '<span class="tag">Preisvorschlag möglich</span>' : ''}`
+    : vk.art === 'auktion' ? `${eur(vk.startpreis)} <span class="tag">Auktion, ${vk.dauerTage} Tage</span>`
+      : `${eur(vk.startpreis)} <span class="tag">Auktion, ${vk.dauerTage} Tage</span><div class="muted">oder Sofort-Kaufen für ${eur(vk.sofortpreis)}</div>`;
+  if (ergebnis?.url) {
+    v.innerHTML = `<div class="card success"><div class="big" aria-hidden="true">&#10003;</div>
+      <h1>${ergebnis.demo ? 'Demo: So wäre es gelaufen' : 'Dein Artikel ist online!'}</h1>
+      ${ergebnis.demo ? '<div class="notice demo">Das war eine Simulation des Servers. Es wurde nichts bei eBay veröffentlicht.</div>' : ''}
+      <p>Angebotsnummer: <b>${esc(ergebnis.listingId)}</b></p>
+      <div class="btn-row"><a class="btn btn-primary" href="${esc(ergebnis.url)}" target="_blank" rel="noopener">${ergebnis.demo ? 'Beispiel-Link (existiert nicht)' : 'Angebot bei eBay ansehen'}</a>
+      <button class="btn btn-secondary" id="again" type="button">Nächsten Artikel einstellen</button></div></div>`;
+    $('#again').onclick = () => { imgs.forEach(freeImg); imgs = []; state = freshState(); ergebnis = null; save(); go(1); };
+    return;
+  }
+  v.innerHTML = `
+    <h1>Schritt 5: Fertig! So geht es weiter</h1>
+    <p class="lead">So ungefähr sieht dein Angebot aus. Prüfe alles in Ruhe, dann bringst du es mit wenigen Klicks zu eBay.</p>
+    <div class="card preview" id="vorschau">
+      <div class="gallery">${imgSrc.map((s, i) => `<img src="${esc(s)}" alt="Foto ${i + 1}">`).join('')}</div>
+      <div class="pbody">
+        <p class="ptitle">${esc(t.titel)}</p>
+        <div class="price">${priceLine}</div>
+        <p class="muted">Zustand: ${esc(CONDITIONS[t.zustand])} | Menge: ${vk.art === 'festpreis' ? esc(vk.menge) : 1} | Versand: ${esc(versandText())}</p>
+        ${t.merkmale.filter((m) => m.name && m.wert).length ? `<table>${t.merkmale.filter((m) => m.name && m.wert).map((m) => `<tr><td>${esc(m.name)}</td><td>${esc(m.wert)}</td></tr>`).join('')}</table>` : ''}
+        <h3>Beschreibung</h3>
+        <div class="desc">${esc(fullDescription())}</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top:0">Dein Angebot mitnehmen</h2>
+      <p class="muted" style="margin-top:0">Diese Version läuft ohne Server. Deshalb stellst du den Artikel bei eBay selbst ein. Dafür bekommst du hier alles fertig zum Einfügen.</p>
+      <div class="btn-row" style="flex-direction:column">
+        <button class="btn btn-primary" type="button" data-copy="titel">Titel kopieren</button>
+        <button class="btn btn-primary" type="button" data-copy="beschreibung">Beschreibung kopieren</button>
+        <button class="btn btn-primary" type="button" id="dlAll">Alle Bilder herunterladen (${imgs.length})</button>
+        <button class="btn btn-secondary" type="button" id="dlZip">Alle Bilder als ZIP-Datei laden</button>
+        <a class="btn btn-ok" href="https://www.ebay.de/sl/sell" target="_blank" rel="noopener">eBay-Verkaufsseite öffnen</a>
+      </div>
+      <div id="dlMsg"></div>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top:0">Schritt für Schritt bei eBay</h2>
+      <p class="muted" style="margin-top:0">Öffne die eBay-Verkaufsseite (grüner Knopf oben) und melde dich an. Dann gehst du diese Punkte der Reihe nach durch. Die Namen der Felder bei eBay können leicht abweichen.</p>
+      <ol class="guide">
+        <li><b>Fotos hochladen.</b> Bei eBay auf "Fotos hinzufügen" tippen und die heruntergeladenen Bilder <code>artikel-1.jpg</code> bis <code>artikel-${imgs.length}.jpg</code> auswählen. Das erste ist das Hauptbild.</li>
+        <li><b>Titel einfügen.</b> Feld "Titel" antippen und einfügen.${mock('Titel', t.titel, 'titel')}</li>
+        <li><b>Kategorie wählen.</b> eBay schlägt Kategorien vor. Unser Vorschlag zur Orientierung:${mock('Kategorie', t.kategorie || '(selbst wählen)')}</li>
+        <li><b>Zustand wählen.</b>${mock('Zustand', CONDITIONS[t.zustand] + (t.zustandsbeschreibung ? ` - ${t.zustandsbeschreibung}` : ''))}</li>
+        <li><b>Artikelmerkmale eintragen</b> (Marke, Modell ...), soweit eBay danach fragt.${t.merkmale.filter((m) => m.name && m.wert).length ? `<div class="mock"><div class="mock-v">${t.merkmale.filter((m) => m.name && m.wert).map((m) => `${esc(m.name)}: ${esc(m.wert)}`).join('<br>')}</div></div>` : ''}</li>
+        <li><b>Beschreibung einfügen.</b> Auf "Beschreibung" tippen und den kopierten Text einfügen.${mock('Beschreibung', fullDescription().slice(0, 120) + (fullDescription().length > 120 ? ' ...' : ''), 'beschreibung')}</li>
+        <li><b>Verkaufsart und Preis.</b> ${mock('Verkaufsart & Preis', `${ART.find((a) => a[0] === vk.art)[1]}: ${priceSummary()}`)}${vk.art === 'festpreis' ? `<div class="muted">Preisvorschlag: ${vk.preisvorschlag.aktiv ? 'einschalten' : 'ausgeschaltet lassen'}. Menge: ${esc(vk.menge)}.</div>` : ''}</li>
+        <li><b>Versand.</b>${mock('Versand', versandText())}</li>
+        <li><b>Prüfen und veröffentlichen.</b> Auf "Einstellen" tippen. Fertig!</li>
+      </ol>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-top:0">Zusammenfassung zum Abschreiben</h2>
+      <table class="sum"><tbody>${summaryRows().map(([k, val]) => `<tr><td>${esc(k)}</td><td>${esc(val)}</td></tr>`).join('')}</tbody></table>
+      <button class="btn btn-secondary btn-small" type="button" data-copy="summary" style="margin-top:10px">Zusammenfassung kopieren</button>
+    </div>
+
+    <div id="serverBox"></div>
+    <p style="text-align:center"><button class="btn btn-secondary btn-small" type="button" id="againLocal">Nächsten Artikel beginnen</button></p>`;
+  $('#dlAll').onclick = downloadAll;
+  $('#dlZip').onclick = downloadZip;
+  $('#againLocal').onclick = () => { if (!confirm('Alles verwerfen und mit einem neuen Artikel beginnen?')) return; imgs.forEach(freeImg); imgs = []; state = freshState(); save(); go(1); };
+  renderServerBox();
+}
+async function copyText(s) {
+  try { await navigator.clipboard.writeText(s); return true; } catch { /* Fallback */ }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = s; ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select();
+    const ok = document.execCommand('copy'); ta.remove(); return ok;
+  } catch { return false; }
+}
+async function doCopy(key) {
+  const text = key === 'titel' ? state.text.titel : key === 'beschreibung' ? fullDescription() : summaryText();
+  const ok = await copyText(text);
+  toast(ok ? 'Kopiert! Jetzt bei eBay einfügen.' : 'Kopieren hat nicht geklappt. Bitte den Text von Hand markieren und kopieren.');
+}
+function saveBlob(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+async function downloadAll() {
+  $('#dlMsg').innerHTML = '<div class="notice info">Die Bilder werden einzeln geladen. Falls dein Browser nachfragt, erlaube bitte mehrere Downloads.</div>';
+  for (let i = 0; i < imgs.length; i++) { saveBlob(chosenBlob(imgs[i]), `artikel-${i + 1}.jpg`); await sleep(350); }
+}
+function loadScript(url) {
+  return new Promise((res, rej) => { const s = document.createElement('script'); s.src = url; s.onload = res; s.onerror = () => rej(new Error('nicht ladbar')); document.head.appendChild(s); });
+}
+async function downloadZip() {
+  try {
+    if (!window.JSZip) await withTimeout(loadScript('https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js'), 15000);
+    const zip = new window.JSZip();
+    imgs.forEach((b, i) => zip.file(`artikel-${i + 1}.jpg`, chosenBlob(b)));
+    saveBlob(await zip.generateAsync({ type: 'blob' }), 'artikel-bilder.zip');
+  } catch {
+    $('#dlMsg').innerHTML = '<div class="notice warn">Die ZIP-Datei konnte nicht erstellt werden (keine Internetverbindung zum Hilfsprogramm). Bitte nutze "Alle Bilder herunterladen".</div>';
+  }
+}
+
+// ---------- Server-Modus (nur wenn die Seite über http(s) von der Node-App kommt) ----------
+async function detectServer() {
+  if (!/^https?:$/.test(location.protocol)) return;
+  for (const base of ['./api/', '/api/']) {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 3000);
+      const res = await fetch(base + 'status', { signal: ctrl.signal });
+      clearTimeout(t);
+      if (!res.ok) continue;
+      const j = await res.json();
+      if (j && typeof j === 'object' && 'ebayVerbunden' in j) { server = { ok: true, status: j, base, konto: null, kontoFehler: null }; break; }
+    } catch { /* kein Server */ }
+  }
+  if (state.schritt === 5 && !location.hash.startsWith('#einstellungen')) renderServerBox();
+}
+async function sapi(path, opts = {}) {
+  const init = { method: opts.method || (opts.body || opts.form ? 'POST' : 'GET'), headers: {} };
+  if (opts.form) init.body = opts.form; else if (opts.body) { init.headers['Content-Type'] = 'application/json'; init.body = JSON.stringify(opts.body); }
+  let res;
+  try { res = await fetch(server.base + path, init); } catch { throw { fehler: { titel: 'Keine Verbindung', text: 'Der Server antwortet nicht. Läuft "npm start" noch?' } }; }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw { fehler: data?.fehler || { titel: 'Fehler', text: 'Unbekannter Fehler.' } };
+  return data;
+}
+function renderServerBox() {
+  const box = $('#serverBox');
+  if (!box) return;
+  if (!server.ok || !(server.status.ebayVerbunden || server.status.demoEbay)) {
+    box.innerHTML = `<div class="card"><h2 style="margin-top:0">Direkt bei eBay einstellen</h2>
+      <p class="muted" style="margin-bottom:0">${server.ok ? 'Dein eBay-Konto ist im Server noch nicht verbunden (Server-Einstellungen). ' : ''}Direktes Einstellen geht nur mit dem mitgelieferten Server (Node.js, siehe README; danach diese Seite unter http://localhost:3000/einfach öffnen). eBay erlaubt Zugriffe direkt aus dem Browser nicht (CORS-Sperre). Mit dieser Einzeldatei nutzt du bitte die Anleitung oben.</p></div>`;
+    return;
+  }
+  const demo = server.status.demoEbay;
+  const s = state.server, k = server.konto;
+  const sel = (id, key, items, label) => `<label for="${id}">${label}</label>${items?.length ? `<select id="${id}" data-bind="server.${key}"><option value="">Bitte wählen ...</option>${items.map((x) => `<option value="${esc(x.id)}" ${s[key] === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select>` : '<div class="notice warn" style="margin-top:0">Keine Richtlinie gefunden. Lege sie in deinem eBay-Konto an (Verkäufer-Center, Konto, Geschäftsrichtlinien).</div>'}`;
+  let inner;
+  if (server.kontoFehler) inner = errBox(server.kontoFehler) + '<button class="btn btn-secondary btn-small" id="kontoRetry" type="button">Erneut laden</button>';
+  else if (!k) inner = spinner('Richtlinien aus deinem eBay-Konto werden geladen ...');
+  else if (k.optInNoetig) inner = '<div class="notice warn">Dein eBay-Konto muss die "Geschäftsrichtlinien" aktivieren (kostenlos).</div><button class="btn btn-primary" id="optin" type="button">Jetzt aktivieren</button>';
+  else inner = `
+    ${demo ? '<div class="notice demo"><b>Demo (Server)</b>Der Server ist nicht mit eBay verbunden. Das Einstellen wird nur simuliert.</div>' : ''}
+    <label for="svKat" style="margin-top:0">eBay-Kategorie-Nummer ${help('Pflicht beim direkten Einstellen. Die Nummer findest du im eBay-Verkäufer-Center oder in der Adresse einer Kategorie-Seite bei eBay.')}</label>
+    <input type="text" id="svKat" inputmode="numeric" data-bind="server.kategorieId" value="${esc(s.kategorieId)}" placeholder="z. B. 33615" maxlength="12">
+    ${t_kat_hint()}
+    ${sel('svV', 'versandId', k.versand, 'Versand / Abholung (Richtlinie)')}${sel('svZ', 'zahlungId', k.zahlung, 'Zahlung (Richtlinie)')}${sel('svR', 'rueckgabeId', k.rueckgabe, 'Rückgabe (Richtlinie)')}
+    <label for="svS">Standort</label>
+    ${k.standorte?.length ? `<select id="svS" data-bind="server.standort"><option value="">Bitte wählen ...</option>${k.standorte.map((x) => `<option value="${esc(x.key)}" ${s.standort === x.key ? 'selected' : ''}>${esc(x.name)}${x.ort ? ' - ' + esc(x.ort) : ''}</option>`).join('')}</select>` : `<div class="row"><input type="text" id="plz" placeholder="PLZ" inputmode="numeric" maxlength="5" aria-label="Postleitzahl"><input type="text" id="ort" placeholder="Ort" aria-label="Ort"></div><button class="btn btn-secondary btn-small" id="mkLoc" type="button" style="margin-top:8px">Standort anlegen</button>`}
+    <div id="pubArea">${busy ? spinner(busy) : ''}</div><div id="pubErr">${ergebnis?.fehler ? errBox(ergebnis.fehler) : ''}</div>
+    <button class="btn btn-ok" id="publish" type="button" style="width:100%;margin-top:14px" ${busy ? 'disabled' : ''}>${demo ? 'Einstellen simulieren (Demo)' : 'Jetzt bei eBay einstellen'}</button>
+    <p class="muted" style="text-align:center">${demo ? 'Demo-Modus: Es wird nichts veröffentlicht.' : 'Das Angebot wird sofort veröffentlicht. Es können eBay-Gebühren anfallen.'}</p>`;
+  box.innerHTML = `<div class="card"><h2 style="margin-top:0">Direkt bei eBay einstellen <span class="tag">Server erkannt</span></h2>
+    <p class="muted" style="margin-top:0">Du hast diese Seite über den Server geöffnet. Deshalb kann der Server den Artikel für dich bei eBay einstellen. Das geht nur mit dem Server, weil eBay Zugriffe direkt aus dem Browser blockiert.</p>${inner}</div>`;
+  if (!k && !server.kontoFehler) loadKontoServer();
+}
+const t_kat_hint = () => (state.text?.kategorie ? `<p class="muted">Dein Kategorie-Vorschlag zur Orientierung: ${esc(state.text.kategorie)}</p>` : '');
+async function loadKontoServer() {
+  try {
+    server.konto = await sapi('konto');
+    const s = state.server, k = server.konto;
+    const one = (list, key, idk = 'id') => { if (list?.length === 1 && !list.some((x) => x[idk] === s[key])) s[key] = list[0][idk]; else if (s[key] && !list?.some((x) => x[idk] === s[key])) s[key] = ''; };
+    one(k.versand, 'versandId'); one(k.zahlung, 'zahlungId'); one(k.rueckgabe, 'rueckgabeId'); one(k.standorte, 'standort', 'key');
+    save();
+  } catch (e) { server.kontoFehler = e.fehler; }
+  if (state.schritt === 5) renderServerBox();
+}
+async function publish() {
+  if (busy) return;
+  const t = state.text, vk = state.verkauf;
+  busy = 'Bilder werden zum Server hochgeladen und das Angebot wird erstellt (das dauert bis zu einer Minute) ...';
+  ergebnis = null;
+  $('#pubArea').innerHTML = spinner(busy);
+  $('#pubErr').innerHTML = '';
+  $('#publish').disabled = true;
+  renderNav();
+  try {
+    // Gewählte (verbesserte) Bilder als "Original" auf den Server laden, damit der Server sie unverändert einstellt.
+    const ids = [];
+    for (let i = 0; i < imgs.length; i++) {
+      const form = new FormData();
+      form.append('fotos', chosenBlob(imgs[i]), `artikel-${i + 1}.jpg`);
+      const r = await sapi('upload', { form });
+      const ok = r.bilder.find((x) => x.id);
+      if (!ok) throw { fehler: { titel: 'Upload-Problem', text: r.bilder[0]?.fehler || 'Ein Foto konnte nicht hochgeladen werden.' } };
+      ids.push(ok.id);
+    }
+    const draft = {
+      titel: t.titel, beschreibung: t.beschreibung, zustand: t.zustand, zustandsbeschreibung: t.zustandsbeschreibung,
+      merkmale: t.merkmale, privat: state.privat, kategorieId: state.server.kategorieId,
+      bilder: ids.map((id) => ({ id, variante: 'original' })),
+      verkauf: { art: vk.art, preis: vk.preis, startpreis: vk.startpreis, sofortpreis: vk.sofortpreis, reservePreis: vk.reservePreis, dauerTage: Number(vk.dauerTage) || 7, menge: Number(vk.menge) || 1, preisvorschlag: vk.preisvorschlag, versandId: state.server.versandId, zahlungId: state.server.zahlungId, rueckgabeId: state.server.rueckgabeId, standort: state.server.standort },
+    };
+    ergebnis = await sapi('einstellen', { body: draft });
+    ids.forEach((id) => sapi('upload/' + id, { method: 'DELETE' }).catch(() => {}));
+    try { localStorage.removeItem(STORE_KEY); } catch { /* ignorieren */ }
+  } catch (e) {
+    ergebnis = { fehler: e.fehler || { titel: 'Fehler', text: String(e?.message || e) } };
+  }
+  busy = null;
+  render();
+}
+
+// ===== Einstellungen =====
+function renderSettings() {
+  renderBanner();
+  $('#progress').classList.add('hide');
+  $('#navbar').classList.add('hidden');
+  $('#view').innerHTML = `
+    <h1>Einstellungen</h1>
+    <p class="lead">Das musst du nur einmal machen. Ohne Schlüssel läuft die App im Demo-Modus, dann kannst du alles ausprobieren.</p>
+    <div id="setMsg"></div>
+    <div class="card">
+      <h2 style="margin-top:0">Anthropic-Schlüssel (für die KI)</h2>
+      <div class="notice info"><b>Bleibt nur auf diesem Gerät</b>Der Schlüssel wird nur in deinem Browser gespeichert (localStorage) und von hier direkt an Anthropic gesendet, nie an andere. Auf fremden oder gemeinsam genutzten Geräten bitte nicht speichern.</div>
+      <p>Einen Schlüssel bekommst du kostenlos in der <a href="https://console.anthropic.com/" target="_blank" rel="noopener">Anthropic Console</a> (Menü "API Keys"). Die KI-Nutzung kostet pro Artikel meist wenige Cent und wird dort abgerechnet.</p>
+      <label for="key">API-Schlüssel</label>
+      <input type="password" id="key" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="sk-ant-..." value="${esc(settings.apiKey)}">
+      <label class="check"><input type="checkbox" id="showKey"><span>Schlüssel anzeigen</span></label>
+      <label for="model">Modell ${help('Die Standardeinstellung passt für fast alle. Nur ändern, wenn du weißt, was du tust.')}</label>
+      <input type="text" id="model" value="${esc(settings.model)}" placeholder="${DEFAULT_MODEL}" autocapitalize="off" spellcheck="false">
+      <label class="check"><input type="checkbox" id="forceDemo" ${settings.forceDemo ? 'checked' : ''}><span>Demo-Modus erzwingen (Beispieltext, auch wenn ein Schlüssel eingetragen ist)</span></label>
+      <div class="btn-row" style="margin-top:14px"><button class="btn btn-primary" id="saveSet" type="button">Speichern</button><button class="btn btn-danger" id="delKey" type="button">Schlüssel löschen</button></div>
+    </div>
+    <div class="card">
+      <h2 style="margin-top:0">Hinweise</h2>
+      <p class="muted" style="margin-top:0">Diese Einzeldatei braucht keinen Server. Das Einstellen bei eBay machst du selbst mit der Anleitung in Schritt 5. Wenn du die Seite stattdessen über den mitgelieferten Server öffnest (<code>npm start</code>) und dort dein eBay-Konto verbunden hast, erscheint in Schritt 5 zusätzlich der Knopf "Direkt bei eBay einstellen".</p>
+      <p class="muted">Aktueller Modus: <b>${isDemo() ? 'Demo' : 'KI mit Websuche'}</b> | Server: <b>${server.ok ? 'erkannt' : 'nicht erkannt'}</b></p>
+    </div>
+    <p><a class="btn btn-secondary" href="#" id="backApp">Zurück zur App</a></p>`;
+  $('#showKey').onchange = (e) => { $('#key').type = e.target.checked ? 'text' : 'password'; };
+  $('#saveSet').onclick = () => {
+    settings.apiKey = $('#key').value.trim();
+    settings.model = $('#model').value.trim() || DEFAULT_MODEL;
+    settings.forceDemo = $('#forceDemo').checked;
+    const ok = saveSettings();
+    $('#setMsg').innerHTML = ok ? '<div class="notice ok" role="status"><b>Gespeichert</b>Deine Einstellungen wurden auf diesem Gerät gespeichert.</div>' : '<div class="notice warn" role="status"><b>Nur für diese Sitzung</b>Dein Browser erlaubt kein Speichern. Die Einstellungen gelten, bis du die Seite schließt.</div>';
+    renderBanner();
+  };
+  $('#delKey').onclick = () => { settings.apiKey = ''; saveSettings(); $('#key').value = ''; $('#setMsg').innerHTML = '<div class="notice ok" role="status"><b>Gelöscht</b>Der Schlüssel wurde von diesem Gerät entfernt.</div>'; renderBanner(); };
+  $('#backApp').onclick = (e) => { e.preventDefault(); history.replaceState(null, '', location.pathname + location.search); render(); };
+}
+
+// ---------- Globale Ereignisse ----------
+document.addEventListener('click', (e) => {
+  const t = e.target.closest('button, a, figure');
+  if (!t) return;
+  if (t.matches('.help')) {
+    const open = t.getAttribute('aria-expanded') === 'true';
+    t.setAttribute('aria-expanded', String(!open));
+    const host = t.closest('label, .label, div') || t.parentElement;
+    const nxt = host.nextElementSibling;
+    if (open && nxt?.classList.contains('helptext')) nxt.remove();
+    else if (!open) host.insertAdjacentHTML('afterend', `<div class="helptext" role="note">${esc(t.dataset.help)}</div>`);
+    return;
+  }
+  if (t.dataset.copy) return doCopy(t.dataset.copy);
+  if (t.dataset.go) return go(Number(t.dataset.go));
+  if (t.dataset.del) return removeImage(t.dataset.del);
+  if (t.dataset.move !== undefined) {
+    const i = Number(t.dataset.move), j = i + Number(t.dataset.dir);
+    if (imgs[j]) { [imgs[i], imgs[j]] = [imgs[j], imgs[i]]; step1($('#view')); }
+    return;
+  }
+  if (t.dataset.pick) { const b = imgs.find((x) => x.id === t.dataset.pick); if (b) { b.wahl = t.dataset.w; $('#enhCards').innerHTML = imgs.map(enhCard).join(''); } return; }
+  if (t.dataset.art) { state.verkauf.art = t.dataset.art; save(); step4($('#view')); return; }
+  if (t.dataset.kvdel !== undefined) { state.text.merkmale.splice(Number(t.dataset.kvdel), 1); save(); $('#kvList').innerHTML = state.text.merkmale.map(kvRow).join(''); return; }
+  if (t.id === 'kontoRetry') { server.konto = null; server.kontoFehler = null; renderServerBox(); return; }
+  if (t.id === 'publish') { publish(); return; }
+  if (t.id === 'optin') {
+    t.disabled = true;
+    sapi('konto/optin', { body: {} }).then(() => { server.konto = null; renderServerBox(); }).catch((er) => { toast(er.fehler.text); t.disabled = false; });
+    return;
+  }
+  if (t.id === 'mkLoc') {
+    t.disabled = true;
+    sapi('standort', { body: { plz: $('#plz').value.trim(), ort: $('#ort').value.trim(), land: 'DE' } })
+      .then((r) => { state.server.standort = r.key; save(); server.konto = null; renderServerBox(); })
+      .catch((er) => { toast(er.fehler.text); t.disabled = false; });
+  }
+});
+document.addEventListener('input', (e) => onChange(e));
+document.addEventListener('change', (e) => onChange(e, true));
+function onChange(e, isChange = false) {
+  const el = e.target;
+  if (el.dataset.kv !== undefined) { state.text.merkmale[Number(el.dataset.kv)][el.dataset.f] = el.value; save(); return; }
+  if (el.dataset.wahl && isChange) { const b = imgs.find((x) => x.id === el.dataset.wahl); if (b) { b.wahl = el.value; $('#enhCards').innerHTML = imgs.map(enhCard).join(''); } return; }
+  const path = el.dataset.bind;
+  if (!path) return;
+  if (el.type === 'checkbox') {
+    setPath(state, path, el.checked);
+    if (isChange && el.dataset.rerender === 'preise') $('#preise').innerHTML = preiseForm();
+  } else {
+    let val = el.value;
+    if (el.dataset.num) val = Number(val);
+    if (path === 'server.kategorieId') val = val.replace(/\D/g, '');
+    setPath(state, path, val);
+    if (path === 'text.titel') { const c = $('#titelCount'); c.textContent = CHARS(val); c.classList.toggle('bad', val.length > 80); }
+  }
+  save();
+}
+window.addEventListener('hashchange', () => { render(); window.scrollTo(0, 0); });
+$('#brand').addEventListener('click', () => { if (location.hash) { history.replaceState(null, '', location.pathname + location.search); render(); } });
+
+// ---------- Start ----------
+(function init() {
+  themeInit();
+  loadSettings();
+  const restored = load();
+  if (restored) { restoredWithoutImages = true; state.schritt = 1; setTimeout(() => toast('Dein letzter Entwurf wurde wiederhergestellt. Bitte Fotos erneut hinzufügen.'), 400); }
+  render();
+  detectServer();
+})();
+</script>
+</body>
+</html>
