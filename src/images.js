@@ -53,7 +53,7 @@ async function baseImage(input) {
 
 function ellipseMask(w, h) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">
-    <defs><filter id="b" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="${Math.round(Math.min(w, h) * 0.07)}"/></filter></defs>
+    <defs><filter id="b" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="${Math.round(Math.min(w, h) * 0.045)}"/></filter></defs>
     <rect width="100%" height="100%" fill="black"/>
     <ellipse cx="${w / 2}" cy="${h / 2}" rx="${w * 0.36}" ry="${h * 0.36}" fill="white" filter="url(#b)"/></svg>`;
   return sharp(Buffer.from(svg)).removeAlpha().greyscale().raw().toBuffer();

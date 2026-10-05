@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>eBay-Verkaufshelfer</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232563eb'/%3E%3Cpath d='M9 17l5 5 9-11' stroke='white' stroke-width='3.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top-in">
+      <a class="brand" href="#" id="brand">eBay-Verkaufshelfer</a>
+      <nav class="top-nav">
+        <button class="linkbtn" id="themeBtn" type="button" title="Hell/Dunkel umschalten">Hell/Dunkel</button>
+        <a class="linkbtn" href="#einstellungen" id="settingsLink">Einstellungen</a>
+      </nav>
+    </div>
+    <div id="banner"></div>
+  </header>
+
+  <main class="wrap" id="main">
+    <div id="progress" class="progress" aria-label="Fortschritt"></div>
+    <div id="view"></div>
+  </main>
+
+  <footer class="navbar" id="navbar">
+    <div class="wrap navbar-in">
+      <button class="btn btn-secondary" id="backBtn" type="button">Zurück</button>
+      <button class="btn btn-primary" id="nextBtn" type="button">Weiter</button>
+    </div>
+  </footer>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="app.js" type="module"></script>
+</body>
+</html>
